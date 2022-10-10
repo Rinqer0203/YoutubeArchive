@@ -1,0 +1,14 @@
+﻿<Window x:Class="YoutubeChannelArchive.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:YoutubeChannelArchive"
+        mc:Ignorable="d"
+        Title="MainWindow" Height="450" Width="800">
+    <Grid>
+        <TextBlock HorizontalAlignment="Center" Margin="0,102,0,0" TextWrapping="Wrap" Text="YouTube Channel Archive (alpha)" VerticalAlignment="Top" FontSize="18"/>
+        <Button x:Name="DownloadButton" Content="Download" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="14" Height="34" Click="Button_Click"/>
+
+    </Grid>
+</Window>

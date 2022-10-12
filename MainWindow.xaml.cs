@@ -14,6 +14,8 @@ using System.Windows.Navigation;
 using System.Windows.Shapes;
 using Microsoft.Win32;
 using YoutubeExplode.Videos;
+using YoutubeExplode.Playlists;
+using YoutubeExplode.Common;
 using YoutubeExplode;
 using YoutubeExplode.Videos.Streams;
 using YoutubeExplode.Converter;
@@ -46,15 +48,32 @@ namespace YoutubeChannelArchive
         private async void CheckFuncTest()
         {
             //テスト
-            string videoURL = "https://www.youtube.com/watch?v=3eytpBOkOFA";
+            string videoURL = "https://www.youtube.com/watch?v=umK9xiCXcvs";
             string savePath = @"C:\Users\Tomoki\Downloads\movies\";
 
             //動画の情報を取得
             Video? videoInfo = await GetVideoInfo(videoURL);
+            Playlist? playlist = await GetPlayListInfo(videoURL);
+            var playlistVideos = await GetPlayListVideos(videoURL);
 
-            if (videoInfo != null)
+            MessageBox.Show($"videoInfo:{(videoInfo == null ? "null" : "not null")}\n" +
+                $"  playlist:{(playlist == null ? "null" : "not null")}\n" +
+                $" playlistVideos:{(playlistVideos == null ? "null" : "not null")}");
+
+            if (videoInfo != null && false)
             {
                 MessageBox.Show($"タイトル：{videoInfo.Title}\n チャンネル名：{videoInfo.Author}\n 動画時間：{videoInfo.Duration}");
+                if (playlist != null)
+                {
+                    MessageBox.Show($"プレイリスト情報\n タイトル：{playlist.Title} チャンネル名：{playlist.Author.ChannelTitle}");
+                    var list = await GetPlayListVideos(videoURL);
+                    string titles = "";
+                    foreach (var s in list)
+                    {
+                        titles += s.Title;
+                    }
+                    MessageBox.Show($"タイトル一覧：{titles}");
+                }
                 VideoDownload(videoURL, savePath);
                 OnlyAudioDownload(videoURL, savePath);
                 OnlyVideoDownload(videoURL, savePath);
@@ -62,6 +81,26 @@ namespace YoutubeChannelArchive
                 MessageBox.Show("ダウンロード終了");
 
             }
+        }
+
+        private async Task<Playlist?> GetPlayListInfo(string url)
+        {
+            Playlist? playlist = null;
+            if (_youtube != null)
+            {
+                playlist = await _youtube.Playlists.GetAsync(url);
+            }
+            return playlist;
+        }
+
+        private async Task<IReadOnlyList<PlaylistVideo>?> GetPlayListVideos(string url)
+        {
+            IReadOnlyList<PlaylistVideo>? videos = null;
+            if (_youtube != null)
+            {
+                videos = await _youtube.Playlists.GetVideosAsync(url);
+            }
+            return videos;
         }
 
         private async Task<Video?> GetVideoInfo(string url)

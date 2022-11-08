@@ -8,17 +8,18 @@
         Title="MainWindow" Height="450" Width="800"
         materialDesign:TransitionAssist.DisableTransitions="True"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes">
-    <Grid>
+    <materialDesign:DialogHost>
+    <Grid>        
         <TextBlock HorizontalAlignment="Center" Margin="0,102,0,0" TextWrapping="Wrap" Text="YouTube Channel Archive (alpha)" VerticalAlignment="Top" FontSize="18"/>
         <Button x:Name="DownloadButton" Content="Download" HorizontalAlignment="Center" VerticalAlignment="Top" FontSize="14" Height="34" Click="Button_Click" Margin="0,245,0,0"/>
         <ProgressBar Value="85" Height="10" Width="528" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,321,0,0" SmallChange="0" LargeChange="0"/>
 
 
-        <TextBox Style="{StaticResource MaterialDesignOutlinedTextBox}"
+            <TextBox Style="{StaticResource MaterialDesignOutlinedTextBox}"
                  AcceptsReturn="True"
                  TextWrapping="Wrap"
                  VerticalScrollBarVisibility="Auto"
                  materialDesign:HintAssist.Hint="Youtube URL" Margin="0,155,0,0" HorizontalAlignment="Center" VerticalAlignment="Top" Width="418"/>
-
-    </Grid>
+        </Grid>
+    </materialDesign:DialogHost>
 </Window>

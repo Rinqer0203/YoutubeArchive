@@ -48,12 +48,18 @@ namespace YoutubeChannelArchive
             CheckFuncTest();
         }
 
+        private void OnProgressChanged(double progress)
+        {
+            DownloadProgress.Value = progress;
+        }
+
         private async void CheckFuncTest()
         {
-            await DialogHost.Show(new MsgBox("ボタンがクリックされました"));
             //テスト
-            string videoURL = "https://www.youtube.com/watch?v=umK9xiCXcvs";  //動画
-            //string videoURL = "https://www.youtube.com/watch?v=WhWc3b3KhnY";  //動画2
+            //string videoURL = "https://www.youtube.com/watch?v=umK9xiCXcvs";  //動画
+            string videoURL = "https://www.youtube.com/watch?v=WhWc3b3KhnY";  //動画2
+            //string videoURL = "https://www.youtube.com/watch?v=GwNZSdp7WNk";  //8k動画3
+
             //string videoURL = "https://www.youtube.com/playlist?list=PL1AnGLbywPJPB-1s_WrZT_pVgSSK_58Bm";    //非公開プレイリスト
             //string videoURL = "https://www.youtube.com/watch?v=j8QnzBGCTyU&list=PL1AnGLbywPJPB-1s_WrZT_pVgSSK_58Bm&index=1";    //非公開プレイリスト(動画選択)
             //string videoURL = "https://www.youtube.com/playlist?list=PLpm4E1LO_i2-z2nxlIaU55HPpBLTNjg1d";    //公開プレイリスト
@@ -102,6 +108,7 @@ namespace YoutubeChannelArchive
                 {
                     await DownloadVideo(videoURL, savePath + $"{GetSafeTitle(videoInfo.Title)}.mp4");
                     //MessageBox.Show("動画のダウンロードが完了いました。");
+                    
                     await DialogHost.Show(new MsgBox("動画のダウンロードが完了いました。"));
                 }
                 else
@@ -238,6 +245,8 @@ namespace YoutubeChannelArchive
                 {
                     await _youtube.Videos.DownloadAsync(url, savePath);
                     Debug.Print($"{savePath} 完了");
+                    var progressHandler = new Progress<double>(OnProgressChanged);
+                    await _youtube.Videos.DownloadAsync(url, savePath, progressHandler);
                 }
                 catch (Exception ex)
                 {

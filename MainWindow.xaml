@@ -6,20 +6,63 @@
         xmlns:local="clr-namespace:YoutubeChannelArchive"
         mc:Ignorable="d"
         Title="MainWindow" Height="450" Width="800"
+        MinHeight="450" MinWidth="500"
         materialDesign:TransitionAssist.DisableTransitions="True"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes">
     <materialDesign:DialogHost>
-    <Grid>        
-        <TextBlock HorizontalAlignment="Center" Margin="0,102,0,0" TextWrapping="Wrap" Text="YouTube Channel Archive (alpha)" VerticalAlignment="Top" FontSize="18"/>
-        <Button x:Name="DownloadButton" Content="Download" HorizontalAlignment="Center" VerticalAlignment="Top" FontSize="14" Height="34" Click="Button_Click" Margin="0,245,0,0"/>
-        <ProgressBar x:Name="DownloadProgress" Value="0.5" Height="10" Width="528" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,321,0,0" SmallChange="0" LargeChange="0" Maximum="1"/>
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
 
-
+            <TextBlock HorizontalAlignment="Center" TextWrapping="Wrap" Text="YouTube Channel Archive (alpha)" 
+                       VerticalAlignment="Center" FontSize="24" Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="4"/>
+            <Button x:Name="DownloadButton" Content="Download" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="14" Height="34" 
+                    Click="Button_Click" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2"/>
+            <ProgressBar x:Name="DownloadProgress" Value="0.5" SmallChange="0" LargeChange="0" Maximum="1"
+                         Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="4" VerticalAlignment="Bottom" HorizontalAlignment="Stretch" Height="10"/>
             <TextBox Style="{StaticResource MaterialDesignOutlinedTextBox}"
                  AcceptsReturn="True"
                  TextWrapping="Wrap"
                  VerticalScrollBarVisibility="Auto"
-                 materialDesign:HintAssist.Hint="Youtube URL" Margin="0,155,0,0" HorizontalAlignment="Center" VerticalAlignment="Top" Width="418"/>
+                 materialDesign:HintAssist.Hint="Youtube URL"
+                 Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,2,0,2"/>
+
+            <StackPanel Grid.Row="1" Grid.Column="3">
+                <ComboBox  Name="UrlActionComboBox" 
+                           materialDesign:HintAssist.Hint="動作" HorizontalAlignment="Right" Width="156"
+                           SelectedIndex="0" Height="31" FontSize="14" Margin="0,0,5,5">
+                    <ComboBoxItem
+                    Content="単体ダウンロード" />
+                    <ComboBoxItem
+                    Content="プレイリストダウンロード" />
+                    <ComboBoxItem
+                    Content="チャンネルダウンロード" />
+                    <ComboBoxItem
+                    Content="チャンネルアーカイブ" />
+                </ComboBox>
+                <ComboBox  Name="DownloadTargetComboBox" materialDesign:HintAssist.Hint="対象" HorizontalAlignment="Right" Width="156" SelectedIndex="0" Height="31" FontSize="14" Margin="0,0,5,5">
+                    <ComboBoxItem
+                    Content="動画" />
+                    <ComboBoxItem
+                    Content="音声のみ" />
+                    <ComboBoxItem
+                    Content="動画(音声なし)" />
+                </ComboBox>
+            </StackPanel>
+
+            <Label Name="DownloadStateLavel" Content="ダウンロード中..." HorizontalAlignment="Left" Grid.Row="5" VerticalAlignment="Bottom" Margin="0,0,0,10"/>
         </Grid>
     </materialDesign:DialogHost>
 </Window>

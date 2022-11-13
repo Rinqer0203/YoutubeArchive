@@ -30,17 +30,11 @@ namespace YoutubeChannelArchive
 {
     public partial class MainWindow : Window
     {
-        private YoutubeClient? _youtube = null;
+        private YoutubeFunc _youtube = new YoutubeFunc();
 
         public MainWindow()
         {
             InitializeComponent();
-            SetYoutubeClient();
-        }
-
-        public void SetYoutubeClient()
-        {
-            _youtube = new YoutubeClient();
         }
 
         private void Button_Click(object sender, RoutedEventArgs e)
@@ -53,24 +47,85 @@ namespace YoutubeChannelArchive
             DownloadProgress.Value = progress;
         }
 
+        internal async Task GetUrlActionType(string url)
+        {
+            Video? videoInfo = await _youtube.GetVideoInfoAsync(url);
+            Playlist? playlistInfo = await _youtube.GetPlayListInfoAsync(url);
+            Channel? channelInfo = await _youtube.GetChannelInfoAsync(url);
+            Channel? videoChannelInfo = null;
+            if (videoInfo != null)
+            {
+                videoChannelInfo = await _youtube.GetChannelInfoAsync(videoInfo.Author.ChannelUrl);
+            }
+
+            await DialogHost.Show(new MsgBox($"videoInfo : {(videoInfo == null ? "なし" : "あり " + videoInfo.Title)}\n" +
+                $"playlist: {(playlistInfo == null ? "なし" : "あり " + playlistInfo.Title)}\n" +
+                $"channelInfo: {(channelInfo == null ? "なし" : "あり " + channelInfo.Title)}\n" +
+                $"videoChannelInfo: {(videoChannelInfo == null ? "なし" : "あり " + videoChannelInfo.Title)}\n"));
+        }
+
         private async void CheckFuncTest()
         {
-            //テスト
-            //string videoURL = "https://www.youtube.com/watch?v=umK9xiCXcvs";  //動画
-            string videoURL = "https://www.youtube.com/watch?v=WhWc3b3KhnY";  //動画2
-            //string videoURL = "https://www.youtube.com/watch?v=GwNZSdp7WNk";  //8k動画3
+            /*
+            var sfd = new SaveFileDialog
+            {
+                AddExtension = true,
+                DefaultExt = "mp4",
+                FileName = "defaultFileName",
+            };
 
-            //string videoURL = "https://www.youtube.com/playlist?list=PL1AnGLbywPJPB-1s_WrZT_pVgSSK_58Bm";    //非公開プレイリスト
-            //string videoURL = "https://www.youtube.com/watch?v=j8QnzBGCTyU&list=PL1AnGLbywPJPB-1s_WrZT_pVgSSK_58Bm&index=1";    //非公開プレイリスト(動画選択)
-            //string videoURL = "https://www.youtube.com/playlist?list=PLpm4E1LO_i2-z2nxlIaU55HPpBLTNjg1d";    //公開プレイリスト
-            //string videoURL = "https://www.youtube.com/watch?v=Jt4ATYElevA&list=PLpm4E1LO_i2-z2nxlIaU55HPpBLTNjg1d";    //公開プレイリスト（動画選択）
-            //string videoURL = "https://www.youtube.com/channel/UCSMOQeBJ2RAnuFungnQOxLg";    //チャンネル
+            // Select destination
+            if (sfd.ShowDialog() != true) return;
+            string filePath = sfd.FileName;
+            //*/
+
+
+            //テスト
+            //string videoUrl = "https://www.youtube.com/watch?v=umK9xiCXcvs";  //動画
+            //string videoUrl = "https://www.youtube.com/watch?v=WhWc3b3KhnY";  //動画2
+            //string videoUrl = "https://www.youtube.com/watch?v=GwNZSdp7WNk";  //8k動画3
+            //string videoUrl = "https://www.youtube.com/playlist?list=PL1AnGLbywPJPB-1s_WrZT_pVgSSK_58Bm";    //非公開プレイリスト
+            //string videoUrl = "https://www.youtube.com/watch?v=j8QnzBGCTyU&list=PL1AnGLbywPJPB-1s_WrZT_pVgSSK_58Bm&index=1";    //非公開プレイリスト(動画選択)
+            string videoUrl = "https://www.youtube.com/playlist?list=PLpm4E1LO_i2-z2nxlIaU55HPpBLTNjg1d";    //公開プレイリスト
+            //string videoUrl = "https://www.youtube.com/watch?v=Jt4ATYElevA&list=PLpm4E1LO_i2-z2nxlIaU55HPpBLTNjg1d";    //公開プレイリスト（動画選択）
+            //string videoUrl = "https://www.youtube.com/channel/UCSMOQeBJ2RAnuFungnQOxLg";    //チャンネル
 
             string savePath = @"C:\Users\Tomoki\Downloads\movies\";
 
-            Video? videoInfo = await GetVideoInfoSync(videoURL);
-            Playlist? playlist = await GetPlayListInfoSync(videoURL);
-            Channel? channelInfo = await GetChannelInfoAsync(videoInfo == null ? "tekito" : videoInfo.Author.ChannelUrl);
+            await _youtube.DownloadPlaylistVideosAsync(videoUrl, "", OnProgressChanged);
+            return;
+
+            await GetUrlActionType(videoUrl);
+
+            MessageBox.Show(UrlActionComboBox.Text);
+            switch (UrlActionComboBox.Text)
+            {
+                case "単体ダウンロード":
+                    await _youtube.DownloadVideoAsync(videoUrl, GetSafeSavepath(savePath, "動画タイトル", "mp4"), OnProgressChanged);
+                    break;
+                case "プレイリストダウンロード":
+                    break;
+                case "チャンネルダウンロード":
+                    break;
+                case "チャンネルアーカイブ":
+                    break;
+                default:
+                    break;
+            }
+
+
+
+            //----------------------------------------------------------------------------------
+
+            Video? videoInfo = await _youtube.GetVideoInfoAsync(videoUrl);
+            Playlist? playlist = await _youtube.GetPlayListInfoAsync(videoUrl);
+            Channel? channelInfo = await _youtube.GetChannelInfoAsync(videoUrl);
+            Channel? videoChannelInfo = null;
+
+            if (videoInfo != null)
+            {
+                videoChannelInfo = await _youtube.GetChannelInfoAsync(videoInfo.Author.ChannelUrl);
+            }
 
             //youtubeチャンネルかどうかの処理も後に実装する
             if (videoInfo == null)
@@ -78,26 +133,25 @@ namespace YoutubeChannelArchive
                 if (playlist == null)
                 {
                     //URLが対象外
-                    //MessageBox.Show("URLが対象外");
-
+                    await DialogHost.Show(new MsgBox("URLが対象外"));
                 }
                 else
                 {
                     if (playlist != null)
                     {
-                        var videoList = await GetPlayListVideosSync(videoURL);
+                        var videoList = await _youtube.GetPlayListVideosAsync(videoUrl);
 
                         if (videoList != null)
                         {
-                            //MessageBox.Show("プレイリストダウンロード");
+                            await DialogHost.Show(new MsgBox("プレイリストダウンロード"));
                             var taskList = new List<Task>();
                             for (int i = 0; i < videoList.Count; i++)
                             {
-                                taskList.Add(DownloadVideo(videoList[i].Url, savePath + $"{GetSafeTitle(videoList[i].Title)}.mp4"));
+                                taskList.Add(_youtube.DownloadVideoAsync(videoList[i].Url, savePath + $"{GetSafeTitle(videoList[i].Title)}.mp4", OnProgressChanged));
                             }
 
                             await Task.WhenAll(taskList);
-                            //MessageBox.Show("ダウンロード完了");
+                            await DialogHost.Show(new MsgBox("ダウンロード完了"));
                         }
                     }
                 }
@@ -106,15 +160,13 @@ namespace YoutubeChannelArchive
             {
                 if (playlist == null)
                 {
-                    await DownloadVideo(videoURL, savePath + $"{GetSafeTitle(videoInfo.Title)}.mp4");
-                    //MessageBox.Show("動画のダウンロードが完了いました。");
-                    
+                    await _youtube.DownloadVideoAsync(videoUrl, savePath + $"{GetSafeTitle(videoInfo.Title)}.mp4", OnProgressChanged);
                     await DialogHost.Show(new MsgBox("動画のダウンロードが完了いました。"));
                 }
                 else
                 {
                     //playlistの動画をすべてダウンロード or 動画だけダウンロード
-                    //MessageBox.Show("playlistの動画をすべてダウンロード or 動画だけダウンロード");
+                    await DialogHost.Show(new MsgBox("playlistの動画をすべてダウンロード or 動画だけダウンロード"));
                 }
 
             }
@@ -152,132 +204,16 @@ namespace YoutubeChannelArchive
             //*/
         }
 
-        private string GetSafeTitle(string title)
+        private string GetSafeSavepath(string savePath, string title, string extension)
+        {
+            return $"{savePath}{GetSafeTitle(Title)}.{extension}";
+        }
+
+        public string GetSafeTitle(string title)
         {
             char[] invalidChars = System.IO.Path.GetInvalidFileNameChars(); //ファイル名に使用できない文字
             return string.Concat(title.Select(c => invalidChars.Contains(c) ? '_' : c));  //使用できない文字を'_'に置換
         }
 
-        private async Task<Playlist?> GetPlayListInfoSync(string url)
-        {
-            Playlist? playlist = null;
-
-            if (_youtube != null)
-            {
-                try
-                {
-                    playlist = await _youtube.Playlists.GetAsync(url);
-                }
-                catch (PlaylistUnavailableException)
-                {
-                    //MessageBox.Show("プレイリストが非公開のため情報を取得できません。");
-                }
-                catch (Exception ex)
-                {
-                    //MessageBox.Show("playlist is exception\n" + ex.Message);
-                }
-            }
-            return playlist;
-        }
-
-        private async Task<IReadOnlyList<PlaylistVideo>?> GetPlayListVideosSync(string url)
-        {
-            IReadOnlyList<PlaylistVideo>? videos = null;
-
-            if (_youtube != null)
-            {
-                try
-                {
-                    videos = await _youtube.Playlists.GetVideosAsync(url);
-                }
-                catch (PlaylistUnavailableException)
-                {
-                    //MessageBox.Show("プレイリストが非公開のため情報を取得できません。");
-                }
-                catch (Exception ex)
-                {
-                    //MessageBox.Show("video is exception\n" + ex.Message);
-                }
-            }
-
-            return videos;
-        }
-
-        private async Task<Video?> GetVideoInfoSync(string url)
-        {
-            Video? videoInfo = null;
-            if (_youtube != null)
-            {
-                try
-                {
-                    videoInfo = await _youtube.Videos.GetAsync(url);
-                }
-                catch (Exception ex)
-                {
-                    //MessageBox.Show("videoInfo is exception\n" + ex.Message);
-                }
-            }
-            return videoInfo;
-        }
-
-        private async Task<Channel?> GetChannelInfoAsync(string url)
-        {
-            Channel? channelInfo = null;
-            if (_youtube != null)
-            {
-                try
-                {
-                    channelInfo = await _youtube.Channels.GetAsync(url);
-                }
-                catch (Exception ex)
-                {
-                    //MessageBox.Show("channelInfo is exception\n" + ex.Message);
-                }
-            }
-            return channelInfo;
-        }
-
-        private async Task DownloadVideo(string url, string savePath)
-        {
-            if (_youtube != null)
-            {
-                try
-                {
-                    await _youtube.Videos.DownloadAsync(url, savePath);
-                    Debug.Print($"{savePath} 完了");
-                    var progressHandler = new Progress<double>(OnProgressChanged);
-                    await _youtube.Videos.DownloadAsync(url, savePath, progressHandler);
-                }
-                catch (Exception ex)
-                {
-                    //MessageBox.Show(ex.Message);
-                }
-            }
-        }
-
-        private async Task DownloadOnlyAudio(string url, string savePath)
-        {
-            if (_youtube != null)
-            {
-                var streamManifest = await _youtube.Videos.Streams.GetManifestAsync(url);
-                var audioStreamInfo = streamManifest.GetAudioOnlyStreams().GetWithHighestBitrate();
-
-                await _youtube.Videos.Streams.DownloadAsync(audioStreamInfo, savePath + $"only_audio.{audioStreamInfo.Container}");
-            }
-        }
-
-        private async Task DownloadOnlyVideo(string url, string savePath)
-        {
-            if (_youtube != null)
-            {
-                var streamManifest = await _youtube.Videos.Streams.GetManifestAsync(url);
-                var movieStreamInfo = streamManifest
-                    .GetVideoOnlyStreams()
-                    .Where(s => s.Container == Container.Mp4)
-                    .GetWithHighestVideoQuality();
-
-                await _youtube.Videos.Streams.DownloadAsync(movieStreamInfo, savePath + $"only_video.{movieStreamInfo.Container}");
-            }
-        }
     }
 }

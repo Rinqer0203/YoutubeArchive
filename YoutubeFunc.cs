@@ -158,7 +158,7 @@ namespace YoutubeChannelArchive
             }
         }
 
-        internal async Task DownloadPlaylistVideosAsync(string url, string savePath, Action<double> progressCallBack)
+        internal async Task DownloadPlaylistVideosAsync(string url, string saveFolderPath, Action<double> progressCallBack)
         {
             if (_youtube == null) return;
 
@@ -169,6 +169,7 @@ namespace YoutubeChannelArchive
                 if (videoList != null)
                 {
                     //フォルダ選択はMainWindowに託す
+                    /*
                     using (var dialog = new CommonOpenFileDialog()
                     {
                         Title = "フォルダを選択してください",
@@ -180,22 +181,23 @@ namespace YoutubeChannelArchive
                             await DialogHost.Show(new MsgBox("キャンセルされました"));
                             return;
                         }
+                    //*/
 
-                        await DialogHost.Show(new MsgBox($"{dialog.FileName}に保存します"));
+                    await DialogHost.Show(new MsgBox($"{saveFolderPath}に保存します"));
 
-                        var taskList = new List<Task>();
-                        for (int i = 0; i < videoList.Count; i++)
-                        {
-                            taskList.Add(DownloadVideoAsync(videoList[i].Url, @$"{dialog.FileName}\{GetSafeTitle(videoList[i].Title)}.mp4"));
-                        }
-
-                        //await Task.WhenAll(taskList);
-                        await WaitAllTask(taskList, progressCallBack);
-                        await DialogHost.Show(new MsgBox("ダウンロード完了"));
-                        //*/
+                    var taskList = new List<Task>();
+                    for (int i = 0; i < videoList.Count; i++)
+                    {
+                        taskList.Add(DownloadVideoAsync(videoList[i].Url, @$"{saveFolderPath}\{GetSafeTitle(videoList[i].Title)}.mp4"));
                     }
 
+                    //await Task.WhenAll(taskList);
+                    await WaitAllTask(taskList, progressCallBack);
+                    await DialogHost.Show(new MsgBox("ダウンロード完了"));
+                    //*/
                 }
+
+
                 else
                 {
                     await DialogHost.Show(new MsgBox("プレイリストに動画が含まれていません"));

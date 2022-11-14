@@ -25,6 +25,7 @@ using YoutubeExplode.Converter;
 using System.Media;
 using System.Diagnostics;
 using MaterialDesignThemes.Wpf;
+using Microsoft.WindowsAPICodePack.Dialogs;
 
 namespace YoutubeChannelArchive
 {
@@ -64,6 +65,58 @@ namespace YoutubeChannelArchive
                 $"videoChannelInfo: {(videoChannelInfo == null ? "なし" : "あり " + videoChannelInfo.Title)}\n"));
         }
 
+        internal string? SaveFilePathDialog(string defaultFileName, string defaultExt)
+        {
+            var sfd = new SaveFileDialog
+            {
+                AddExtension = true,
+                DefaultExt = defaultExt,
+                FileName = defaultFileName,
+            };
+
+            if (sfd.ShowDialog() == true)
+            {
+                return sfd.FileName;
+            }
+            else
+            {
+                return null;
+            }
+        }
+
+        internal string? SaveFolderPathDialog()
+        {
+            var dialog = new CommonOpenFileDialog()
+            {
+                Title = "フォルダを選択してください",
+                IsFolderPicker = true,
+            };
+
+            if (dialog.ShowDialog() != CommonFileDialogResult.Ok)
+            {
+                return null;
+            }
+            else
+            {
+                return dialog.FileName;
+            }
+        }
+
+        private async Task DownloadPlaylistVideos(string url)
+        {
+            string? saveFolderPath = SaveFolderPathDialog();
+            if (saveFolderPath == null)
+            {
+                await DialogHost.Show(new MsgBox("キャンセルされました"));
+                return;
+            }
+            else
+            {
+                await _youtube.DownloadPlaylistVideosAsync(url, saveFolderPath, OnProgressChanged);
+            }
+            return;
+        }
+
         private async void CheckFuncTest()
         {
             /*
@@ -87,24 +140,24 @@ namespace YoutubeChannelArchive
             //string videoUrl = "https://www.youtube.com/playlist?list=PL1AnGLbywPJPB-1s_WrZT_pVgSSK_58Bm";    //非公開プレイリスト
             //string videoUrl = "https://www.youtube.com/watch?v=j8QnzBGCTyU&list=PL1AnGLbywPJPB-1s_WrZT_pVgSSK_58Bm&index=1";    //非公開プレイリスト(動画選択)
             //string videoUrl = "https://www.youtube.com/playlist?list=PLpm4E1LO_i2-z2nxlIaU55HPpBLTNjg1d";    //公開プレイリスト
-            string videoUrl = "https://www.youtube.com/playlist?list=PLTz7YgHsKaJU-wgC47rD4f_2WjS_U-ClO";    //公開プレイリスト(長い)
+            //string videoUrl = "https://www.youtube.com/playlist?list=PLTz7YgHsKaJU-wgC47rD4f_2WjS_U-ClO";    //公開プレイリスト(長い)
+            string videoUrl = "https://www.youtube.com/playlist?list=PLSfaMlUCtfeHCCs_88hSSE617roKod2Km";    //公開プレイリスト(短い)
             //string videoUrl = "https://www.youtube.com/watch?v=Jt4ATYElevA&list=PLpm4E1LO_i2-z2nxlIaU55HPpBLTNjg1d";    //公開プレイリスト（動画選択）
             //string videoUrl = "https://www.youtube.com/channel/UCSMOQeBJ2RAnuFungnQOxLg";    //チャンネル
 
             string savePath = @"C:\Users\Tomoki\Downloads\movies\";
 
-            await _youtube.DownloadPlaylistVideosAsync(videoUrl, "", OnProgressChanged);
+            var s = SaveFilePathDialog("test", "mp4");
             return;
+            //await GetUrlActionType(videoUrl);
 
-            await GetUrlActionType(videoUrl);
-
-            MessageBox.Show(UrlActionComboBox.Text);
             switch (UrlActionComboBox.Text)
             {
                 case "単体ダウンロード":
                     await _youtube.DownloadVideoAsync(videoUrl, GetSafeSavepath(savePath, "動画タイトル", "mp4"), OnProgressChanged);
                     break;
                 case "プレイリストダウンロード":
+                    await DownloadPlaylistVideos(videoUrl);
                     break;
                 case "チャンネルダウンロード":
                     break;
@@ -207,7 +260,7 @@ namespace YoutubeChannelArchive
 
         private string GetSafeSavepath(string savePath, string title, string extension)
         {
-            return $"{savePath}{GetSafeTitle(Title)}.{extension}";
+            return @$"{savePath}\{GetSafeTitle(Title)}.{extension}";
         }
 
         public string GetSafeTitle(string title)

@@ -9,7 +9,9 @@
         MinHeight="450" MinWidth="500"
         materialDesign:TransitionAssist.DisableTransitions="True"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes">
+    
     <materialDesign:DialogHost>
+        
         <Grid>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>

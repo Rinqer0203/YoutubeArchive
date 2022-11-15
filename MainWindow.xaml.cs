@@ -26,6 +26,7 @@ using System.Media;
 using System.Diagnostics;
 using MaterialDesignThemes.Wpf;
 using Microsoft.WindowsAPICodePack.Dialogs;
+using System.Reflection.Metadata;
 
 namespace YoutubeChannelArchive
 {
@@ -36,6 +37,12 @@ namespace YoutubeChannelArchive
         public MainWindow()
         {
             InitializeComponent();
+            /*
+            PaletteHelper paletteHelper = new PaletteHelper();
+            Theme theme = (Theme)paletteHelper.GetTheme();
+            theme.SetBaseTheme(Theme.Dark);
+            paletteHelper.SetTheme(theme);
+            //*/
         }
 
         private void Button_Click(object sender, RoutedEventArgs e)
@@ -67,21 +74,17 @@ namespace YoutubeChannelArchive
 
         internal string? SaveFilePathDialog(string defaultFileName, string defaultExt)
         {
-            var sfd = new SaveFileDialog
+            var dialog = new SaveFileDialog
             {
                 AddExtension = true,
                 DefaultExt = defaultExt,
                 FileName = defaultFileName,
             };
-
-            if (sfd.ShowDialog() == true)
+            if (dialog.ShowDialog() == true)
             {
-                return sfd.FileName;
+                return dialog.FileName;
             }
-            else
-            {
-                return null;
-            }
+            return null;
         }
 
         internal string? SaveFolderPathDialog()
@@ -91,35 +94,72 @@ namespace YoutubeChannelArchive
                 Title = "フォルダを選択してください",
                 IsFolderPicker = true,
             };
-
-            if (dialog.ShowDialog() != CommonFileDialogResult.Ok)
-            {
-                return null;
-            }
-            else
+            if (dialog.ShowDialog() == CommonFileDialogResult.Ok)
             {
                 return dialog.FileName;
             }
+            return null;
         }
 
-        private async Task DownloadPlaylistVideos(string url)
+        private async Task DownloadOne(string url)
         {
-            string? saveFolderPath = SaveFolderPathDialog();
-            if (saveFolderPath == null)
+            Video? vInfo = await _youtube.GetVideoInfoAsync(url);
+            if (vInfo == null)
+            {
+                await DialogHost.Show(new MsgBox("動画データを取得できませんでした"));
+                return;
+            }
+
+            var savePath = SaveFilePathDialog(GetSafeTitle(vInfo.Title), "mp4");
+            if (savePath == null)
             {
                 await DialogHost.Show(new MsgBox("キャンセルされました"));
                 return;
             }
-            else
+
+            await Download(_youtube.DownloadVideoAsync(url, savePath, OnProgressChanged));
+        }
+
+        private async Task DownloadPlaylist(string url)
+        {
+            var savePath = SaveFolderPathDialog();
+            if (savePath == null)
             {
-                await _youtube.DownloadPlaylistVideosAsync(url, saveFolderPath, OnProgressChanged);
+                await DialogHost.Show(new MsgBox("キャンセルされました"));
+                return;
             }
-            return;
+
+            await Download(_youtube.DownloadPlaylistVideosAsync(url, savePath, OnProgressChanged));
+        }
+
+        private async Task DownloadChannelVideos(string url)
+        {
+            var savePath = SaveFolderPathDialog();
+            if (savePath == null)
+            {
+                await DialogHost.Show(new MsgBox("キャンセルさました"));
+                return;
+            }
+
+            await Download(_youtube.DownaloadChannelVideosAsync(url, savePath, OnProgressChanged));
+        }
+
+        private async Task Download(Task downloadTask)
+        {
+            try
+            {
+                await downloadTask;
+                await DialogHost.Show(new MsgBox("ダウンロード完了"));
+            }
+            catch
+            {
+                await DialogHost.Show(new MsgBox("エラーが発生したためダウンロードが完了しませんでした"));
+            }
+
         }
 
         private async void CheckFuncTest()
-        {
-            /*
+        {            /*
             var sfd = new SaveFileDialog
             {
                 AddExtension = true,
@@ -134,36 +174,35 @@ namespace YoutubeChannelArchive
 
 
             //テスト
-            //string videoUrl = "https://www.youtube.com/watch?v=umK9xiCXcvs";  //動画
+            string videoUrl = "https://www.youtube.com/watch?v=umK9xiCXcvs";  //動画
             //string videoUrl = "https://www.youtube.com/watch?v=WhWc3b3KhnY";  //動画2
             //string videoUrl = "https://www.youtube.com/watch?v=GwNZSdp7WNk";  //8k動画3
             //string videoUrl = "https://www.youtube.com/playlist?list=PL1AnGLbywPJPB-1s_WrZT_pVgSSK_58Bm";    //非公開プレイリスト
             //string videoUrl = "https://www.youtube.com/watch?v=j8QnzBGCTyU&list=PL1AnGLbywPJPB-1s_WrZT_pVgSSK_58Bm&index=1";    //非公開プレイリスト(動画選択)
             //string videoUrl = "https://www.youtube.com/playlist?list=PLpm4E1LO_i2-z2nxlIaU55HPpBLTNjg1d";    //公開プレイリスト
             //string videoUrl = "https://www.youtube.com/playlist?list=PLTz7YgHsKaJU-wgC47rD4f_2WjS_U-ClO";    //公開プレイリスト(長い)
-            string videoUrl = "https://www.youtube.com/playlist?list=PLSfaMlUCtfeHCCs_88hSSE617roKod2Km";    //公開プレイリスト(短い)
+            //string videoUrl = "https://www.youtube.com/playlist?list=PLSfaMlUCtfeHCCs_88hSSE617roKod2Km";    //公開プレイリスト(短い)
             //string videoUrl = "https://www.youtube.com/watch?v=Jt4ATYElevA&list=PLpm4E1LO_i2-z2nxlIaU55HPpBLTNjg1d";    //公開プレイリスト（動画選択）
             //string videoUrl = "https://www.youtube.com/channel/UCSMOQeBJ2RAnuFungnQOxLg";    //チャンネル
+            //string videoUrl = "https://www.youtube.com/channel/UCAZfv8y2eKy-5S9rCgT8y9A/videos";    //チャンネル(小)
 
-            string savePath = @"C:\Users\Tomoki\Downloads\movies\";
-
-            var s = SaveFilePathDialog("test", "mp4");
-            return;
+            //string savePath = @"C:\Users\Tomoki\Downloads\movies\";
+            //var s = SaveFilePathDialog("test", "mp4");
             //await GetUrlActionType(videoUrl);
 
             switch (UrlActionComboBox.Text)
             {
                 case "単体ダウンロード":
-                    await _youtube.DownloadVideoAsync(videoUrl, GetSafeSavepath(savePath, "動画タイトル", "mp4"), OnProgressChanged);
+                    await DownloadOne(videoUrl);
                     break;
                 case "プレイリストダウンロード":
-                    await DownloadPlaylistVideos(videoUrl);
+                    await DownloadPlaylist(videoUrl);
                     break;
                 case "チャンネルダウンロード":
+                    await DownloadChannelVideos(videoUrl);
                     break;
                 case "チャンネルアーカイブ":
-                    break;
-                default:
+                    //後で実装
                     break;
             }
 
@@ -171,6 +210,7 @@ namespace YoutubeChannelArchive
 
             //----------------------------------------------------------------------------------
 
+            /*
             Video? videoInfo = await _youtube.GetVideoInfoAsync(videoUrl);
             Playlist? playlist = await _youtube.GetPlayListInfoAsync(videoUrl);
             Channel? channelInfo = await _youtube.GetChannelInfoAsync(videoUrl);
@@ -222,8 +262,8 @@ namespace YoutubeChannelArchive
                     //playlistの動画をすべてダウンロード or 動画だけダウンロード
                     await DialogHost.Show(new MsgBox("playlistの動画をすべてダウンロード or 動画だけダウンロード"));
                 }
-
             }
+            //*/
 
             //動画の情報を取得
             /*

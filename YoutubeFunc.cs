@@ -26,6 +26,7 @@ using System.Media;
 using System.Diagnostics;
 using MaterialDesignThemes.Wpf;
 using Microsoft.WindowsAPICodePack.Dialogs;
+using System.CodeDom;
 
 namespace YoutubeChannelArchive
 {
@@ -48,47 +49,62 @@ namespace YoutubeChannelArchive
 
         internal async Task<Playlist?> GetPlayListInfoAsync(string url)
         {
+            if (_youtube == null) return null;
+
             Playlist? playlist = null;
 
-            if (_youtube != null)
+            try
             {
-                try
-                {
-                    playlist = await _youtube.Playlists.GetAsync(url);
-                }
-                catch (PlaylistUnavailableException)
-                {
-                    await DialogHost.Show(new MsgBox("プレイリストが非公開のため情報を取得できません。"));
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show("playlist is exception\n" + ex.Message);
-                }
+                playlist = await _youtube.Playlists.GetAsync(url);
             }
+            catch (PlaylistUnavailableException)
+            {
+                await DialogHost.Show(new MsgBox("プレイリストが非公開のため情報を取得できません。"));
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("playlist is exception\n" + ex.Message);
+            }
+
             return playlist;
         }
 
         internal async Task<IReadOnlyList<PlaylistVideo>?> GetPlayListVideosAsync(string url)
         {
+            if (_youtube != null) return null;
+
             IReadOnlyList<PlaylistVideo>? videos = null;
 
-            if (_youtube != null)
+            try
             {
-                try
-                {
-                    videos = await _youtube.Playlists.GetVideosAsync(url);
-                }
-                catch (PlaylistUnavailableException)
-                {
-                    await DialogHost.Show(new MsgBox("プレイリストが非公開のため情報を取得できません。"));
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show("video is exception\n" + ex.Message);
-                }
+                videos = await _youtube.Playlists.GetVideosAsync(url);
+            }
+            catch (PlaylistUnavailableException)
+            {
+                await DialogHost.Show(new MsgBox("プレイリストが非公開のため情報を取得できません。"));
+            }
+            catch (Exception ex)
+            {
+                //MessageBox.Show("video is exception\n" + ex.Message);
             }
 
             return videos;
+        }
+
+        internal async Task<IReadOnlyList<PlaylistVideo>?> GetChannelVideosAsync(string url)
+        {
+            if (_youtube == null) return null;
+
+            try
+            {
+                return await _youtube.Channels.GetUploadsAsync(url);
+            }
+            catch(Exception ex)
+            {
+                MessageBox.Show($"GetChannelVideosAsync\n{ex.Message}");
+                return null;
+            }
+
         }
 
         internal async Task<Video?> GetVideoInfoAsync(string url)
@@ -102,7 +118,7 @@ namespace YoutubeChannelArchive
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show("videoInfo is exception\n" + ex.Message);
+                    //MessageBox.Show("videoInfo is exception\n" + ex.Message);
 
                 }
             }
@@ -134,8 +150,6 @@ namespace YoutubeChannelArchive
 
             try
             {
-                await _youtube.Videos.DownloadAsync(url, savePath);
-
                 if (progressCallback == null)
                 {
                     await _youtube.Videos.DownloadAsync(url, savePath);
@@ -154,7 +168,7 @@ namespace YoutubeChannelArchive
                 {
                     sw.WriteLine(ex.Message);
                 }
-                //失敗した際の処理も書く
+                throw;
             }
         }
 
@@ -168,45 +182,60 @@ namespace YoutubeChannelArchive
 
                 if (videoList != null)
                 {
-                    //フォルダ選択はMainWindowに託す
-                    /*
-                    using (var dialog = new CommonOpenFileDialog()
-                    {
-                        Title = "フォルダを選択してください",
-                        IsFolderPicker = true,
-                    })
-                    {
-                        if (dialog.ShowDialog() != CommonFileDialogResult.Ok)
-                        {
-                            await DialogHost.Show(new MsgBox("キャンセルされました"));
-                            return;
-                        }
-                    //*/
-
                     await DialogHost.Show(new MsgBox($"{saveFolderPath}に保存します"));
 
-                    var taskList = new List<Task>();
-                    for (int i = 0; i < videoList.Count; i++)
-                    {
-                        taskList.Add(DownloadVideoAsync(videoList[i].Url, @$"{saveFolderPath}\{GetSafeTitle(videoList[i].Title)}.mp4"));
-                    }
-
                     //await Task.WhenAll(taskList);
-                    await WaitAllTask(taskList, progressCallBack);
-                    await DialogHost.Show(new MsgBox("ダウンロード完了"));
+                    await WaitAllTask(GetVieosTask(videoList, saveFolderPath), progressCallBack);
+                    //await DialogHost.Show(new MsgBox("ダウンロード完了"));
                     //*/
                 }
-
-
                 else
                 {
                     await DialogHost.Show(new MsgBox("プレイリストに動画が含まれていません"));
                 }
             }
-            catch (Exception ex)
+            catch
             {
-                MessageBox.Show(ex.Message);
+                throw;
             }
+        }
+
+        internal async Task DownaloadChannelVideosAsync(string url, string saveFolderPath, Action<double> progressCallBack)
+        {
+            if (_youtube == null) return;
+
+            try
+            {
+                await DialogHost.Show(new MsgBox($"{saveFolderPath}に保存します"));
+
+                var videoList = await GetChannelVideosAsync(url);
+
+                if (videoList == null)
+                {
+                    await DialogHost.Show(new MsgBox("チャンネルの動画リストを取得できませんでした"));
+                    return;
+                }
+
+                //MessageBox.Show($"動画数：{videoList.Count()}\n[0] : {videoList[0].Title}");
+
+                await WaitAllTask(GetVieosTask(videoList, saveFolderPath), progressCallBack);
+
+            }
+            catch
+            {
+                throw;
+            }
+
+        }
+
+        private List<Task> GetVieosTask(IReadOnlyList<PlaylistVideo> videoList, string saveFolderPath)
+        {
+            var taskList = new List<Task>();
+            for (int i = 0; i < videoList.Count; i++)
+            {
+                taskList.Add(DownloadVideoAsync(videoList[i].Url, @$"{saveFolderPath}\{GetSafeTitle(videoList[i].Title)}.mp4"));
+            }
+            return taskList;
         }
 
         internal async Task WaitAllTask(List<Task> tasks, Action<double> proglessCallBack)

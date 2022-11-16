@@ -159,20 +159,7 @@ namespace YoutubeChannelArchive
         }
 
         private async void CheckFuncTest()
-        {            /*
-            var sfd = new SaveFileDialog
-            {
-                AddExtension = true,
-                DefaultExt = "mp4",
-                FileName = "defaultFileName",
-            };
-
-            // Select destination
-            if (sfd.ShowDialog() != true) return;
-            string filePath = sfd.FileName;
-            //*/
-
-
+        {
             //テスト
             string videoUrl = "https://www.youtube.com/watch?v=umK9xiCXcvs";  //動画
             //string videoUrl = "https://www.youtube.com/watch?v=WhWc3b3KhnY";  //動画2

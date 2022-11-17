@@ -63,7 +63,7 @@ namespace YoutubeChannelArchive
             }
             catch (Exception ex)
             {
-                MessageBox.Show("playlist is exception\n" + ex.Message);
+                //MessageBox.Show("playlist is exception\n" + ex.Message);
             }
 
             return playlist;
@@ -136,7 +136,7 @@ namespace YoutubeChannelArchive
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show("channelInfo is exception\n" + ex.Message);
+                    //MessageBox.Show("channelInfo is exception\n" + ex.Message);
                 }
             }
             return channelInfo;

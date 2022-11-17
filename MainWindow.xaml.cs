@@ -47,7 +47,11 @@ namespace YoutubeChannelArchive
 
         private void Button_Click(object sender, RoutedEventArgs e)
         {
+            /*/
             CheckFuncTest();
+            /*/
+            AddDownloadList();
+            //*/
         }
 
         private void OnProgressChanged(double progress)
@@ -156,6 +160,87 @@ namespace YoutubeChannelArchive
                 await DialogHost.Show(new MsgBox("エラーが発生したためダウンロードが完了しませんでした"));
             }
 
+        }
+
+        private async void AddDownloadList()
+        {
+            string url = UrlTextBox.Text;
+
+            async void AddList()
+            {
+                /*
+                StackPanel panel = new StackPanel();
+                System.Windows.Controls.Image image = new System.Windows.Controls.Image();
+                BitmapImage bmpImage = new BitmapImage();
+                UrlTextBox.Text = s.Thumbnails.First().Url;
+
+                panel.Children.Add(image);
+
+                DownloadListBox.Items.Add(s.Thumbnails.Cast<Image>());
+                //*/
+
+                var s = await _youtube.GetVideoInfoAsync(url);
+                Image image = new Image();
+                BitmapImage imageSource = new BitmapImage(new Uri(s.Thumbnails.First().Url));
+                image.Source = imageSource;
+                image.Width = s.Thumbnails.First().Resolution.Width;
+                image.Height = s.Thumbnails.First().Resolution.Height;
+
+                StackPanel stack = new StackPanel();
+                stack.Orientation = Orientation.Horizontal;
+                stack.Children.Add(image);
+                TextBlock textBlock = new TextBlock();
+                textBlock.Text = s.Title;
+                stack.Children.Add(textBlock);
+                DownloadListBox.Items.Add(stack);
+                
+
+                //画像のロード完了イベントを処理して、画像のサイズを設定する
+                /*
+                imageSource.DownloadCompleted += new EventHandler((object sender, EventArgs e) =>
+                {
+                    image.Width = imageSource.PixelWidth;
+                    image.Height = imageSource.PixelHeight;
+                });
+                //*/
+            }
+
+            switch(UrlActionComboBox.Text)
+            {
+                case "単体ダウンロード":
+                    if (await _youtube.GetVideoInfoAsync(url) == null)
+                    {
+                        await DialogHost.Show(new MsgBox("動画データを取得できませんでした\nURLが不正な可能性があります"));
+                    }
+                    else
+                    {
+                        AddList();
+                    }
+                    break;
+                case "プレイリストダウンロード":
+                    if (await _youtube.GetPlayListInfoAsync(url) == null)
+                    {
+                        await DialogHost.Show(new MsgBox("プレイリストデータを取得できませんでした\nURLが不正な可能性があります"));
+                    }
+                    else
+                    {
+                        AddList();
+                    }
+                    break;
+                case "チャンネルダウンロード":
+                    if (await _youtube.GetChannelInfoAsync(url) == null)
+                    {
+                        await DialogHost.Show(new MsgBox("チャンネルデータを取得できませんでした\nURLが不正な可能性があります"));
+                    }
+                    else
+                    {
+                        AddList();
+                    }
+                    break;
+                case "チャンネルアーカイブ":
+                    //後で実装
+                    break;
+            }
         }
 
         private async void CheckFuncTest()

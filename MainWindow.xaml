@@ -6,7 +6,7 @@
         xmlns:l="http://schemas.livet-mvvm.net/2011/wpf"
  
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
-        xmlns:av="http://schemas.microsoft.com/expression/blend/2008" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="av" x:Class="YoutubeChannelArchive.MainWindow"
+        xmlns:av="http://schemas.microsoft.com/expression/blend/2008" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:local="clr-namespace:YoutubeChannelArchive" mc:Ignorable="av" x:Class="YoutubeChannelArchive.MainWindow"
         TextElement.Foreground="{DynamicResource MaterialDesignBody}"
         TextElement.FontWeight="Regular"
         TextElement.FontSize="13"
@@ -41,7 +41,7 @@
                          materialDesign:TransitionAssist.DisableTransitions="True"
                          Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="4" VerticalAlignment="Bottom" HorizontalAlignment="Stretch" Height="10"/>
             <TextBox Style="{StaticResource MaterialDesignOutlinedTextBox}"
-                 Name="UrlTextBox"
+                 x:Name="UrlTextBox"
                  AcceptsReturn="True"
                  TextWrapping="Wrap"
                  VerticalScrollBarVisibility="Auto"
@@ -71,7 +71,11 @@
 
             <ListBox x:Name="DownloadListBox" Grid.Row="3" Grid.ColumnSpan="4" Grid.RowSpan="2" Margin="10,0,10,0" 
                      BorderBrush="Black" BorderThickness="0.8">
-                <ListBoxItem />
+                <ListBoxItem>
+
+                    <local:VideoInfo Text="fdsa"/>
+
+                </ListBoxItem>
             </ListBox>
             <Label x:Name="DownloadStateLavel" Content="ダウンロード中..." HorizontalAlignment="Left" Grid.Row="5" VerticalAlignment="Bottom" Margin="0,0,0,10"/>
         </Grid>

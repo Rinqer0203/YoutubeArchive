@@ -180,20 +180,28 @@ namespace YoutubeChannelArchive
                 //*/
 
                 var s = await _youtube.GetVideoInfoAsync(url);
+
+                int max = s.Thumbnails.Count();
+                MessageBox.Show($"{s.Thumbnails[max - 1].Resolution}\n{s.Thumbnails[0].Resolution}");
+
                 Image image = new Image();
                 BitmapImage imageSource = new BitmapImage(new Uri(s.Thumbnails.First().Url));
                 image.Source = imageSource;
                 image.Width = s.Thumbnails.First().Resolution.Width;
                 image.Height = s.Thumbnails.First().Resolution.Height;
 
-                StackPanel stack = new StackPanel();
+                var videoInfo = new VideoInfo();
+                videoInfo.Text = s.Title;
+                videoInfo.ImgSource = new BitmapImage(new Uri(s.Thumbnails.First().Url));
+
+                /*
+                StackPanel stack = new StackPanel();                
                 stack.Orientation = Orientation.Horizontal;
                 stack.Children.Add(image);
-                TextBlock textBlock = new TextBlock();
-                textBlock.Text = s.Title;
                 stack.Children.Add(textBlock);
-                DownloadListBox.Items.Add(stack);
-                
+                //*/
+
+                DownloadListBox.Items.Add(videoInfo);
 
                 //画像のロード完了イベントを処理して、画像のサイズを設定する
                 /*

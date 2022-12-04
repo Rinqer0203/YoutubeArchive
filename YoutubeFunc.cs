@@ -71,7 +71,7 @@ namespace YoutubeChannelArchive
 
         internal async Task<IReadOnlyList<PlaylistVideo>?> GetPlayListVideosAsync(string url)
         {
-            if (_youtube != null) return null;
+            if (_youtube == null) return null;
 
             IReadOnlyList<PlaylistVideo>? videos = null;
 
@@ -99,12 +99,11 @@ namespace YoutubeChannelArchive
             {
                 return await _youtube.Channels.GetUploadsAsync(url);
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 MessageBox.Show($"GetChannelVideosAsync\n{ex.Message}");
                 return null;
             }
-
         }
 
         internal async Task<Video?> GetVideoInfoAsync(string url)
@@ -119,7 +118,6 @@ namespace YoutubeChannelArchive
                 catch (Exception ex)
                 {
                     //MessageBox.Show("videoInfo is exception\n" + ex.Message);
-
                 }
             }
             return videoInfo;
@@ -127,19 +125,37 @@ namespace YoutubeChannelArchive
 
         internal async Task<Channel?> GetChannelInfoAsync(string url)
         {
-            Channel? channelInfo = null;
-            if (_youtube != null)
+            if (_youtube == null) return null;
+
+            try
+            {
+                return await _youtube.Channels.GetAsync(url);
+            }
+            catch
             {
                 try
                 {
-                    channelInfo = await _youtube.Channels.GetAsync(url);
+                    return await _youtube.Channels.GetByUserAsync(url);
                 }
-                catch (Exception ex)
+                catch
                 {
-                    //MessageBox.Show("channelInfo is exception\n" + ex.Message);
+                    try
+                    {
+                        return await _youtube.Channels.GetBySlugAsync(url);
+                    }
+                    catch
+                    {
+                        try
+                        {
+                            return await _youtube.Channels.GetByHandleAsync(url);
+                        }
+                        catch
+                        {
+                            return null;
+                        }
+                    }
                 }
             }
-            return channelInfo;
         }
 
         //ダウンロード系関数-------------------------------------------------
@@ -172,6 +188,32 @@ namespace YoutubeChannelArchive
             }
         }
 
+        internal async Task DownloadVideoAsync(List<(string url, string title)> videoInfos, string saveFolderPath, Action<double> progressCallback)
+        {
+            if (_youtube == null) return;
+
+            try
+            {
+                var taskList = new List<Task>();
+                foreach (var s in videoInfos)
+                {
+                    taskList.Add(DownloadVideoAsync(s.url, @$"{saveFolderPath}\{GetSafeTitle(s.title)}.mp4"));
+                }
+
+                await WaitAllTask(taskList, progressCallback);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"DownloadVideoAsync\n{ex.Message}");
+                //エラーログファイルを出力
+                using (StreamWriter sw = new StreamWriter(@$"{System.IO.Directory.GetCurrentDirectory()}\errorLog.txt", true, Encoding.UTF8))
+                {
+                    sw.WriteLine(ex.Message);
+                }
+                throw;
+            }
+        }
+
         internal async Task DownloadPlaylistVideosAsync(string url, string saveFolderPath, Action<double> progressCallBack)
         {
             if (_youtube == null) return;
@@ -184,10 +226,7 @@ namespace YoutubeChannelArchive
                 {
                     await DialogHost.Show(new MsgBox($"{saveFolderPath}に保存します"));
 
-                    //await Task.WhenAll(taskList);
                     await WaitAllTask(GetVieosTask(videoList, saveFolderPath), progressCallBack);
-                    //await DialogHost.Show(new MsgBox("ダウンロード完了"));
-                    //*/
                 }
                 else
                 {
@@ -215,8 +254,6 @@ namespace YoutubeChannelArchive
                     await DialogHost.Show(new MsgBox("チャンネルの動画リストを取得できませんでした"));
                     return;
                 }
-
-                //MessageBox.Show($"動画数：{videoList.Count()}\n[0] : {videoList[0].Title}");
 
                 await WaitAllTask(GetVieosTask(videoList, saveFolderPath), progressCallBack);
 

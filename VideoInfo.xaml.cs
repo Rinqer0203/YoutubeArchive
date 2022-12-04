@@ -18,10 +18,10 @@ namespace YoutubeChannelArchive
     /// <summary>
     /// VideoInfo.xaml の相互作用ロジック
     /// </summary>
-    public partial class VideoInfo : UserControl
+    public partial class UiVideoInfo : UserControl
     {
 
-        public string Text
+        public string text
         {
             get
             {
@@ -45,7 +45,7 @@ namespace YoutubeChannelArchive
             }
         }
 
-        public VideoInfo()
+        public UiVideoInfo()
         {
             InitializeComponent();
         }        

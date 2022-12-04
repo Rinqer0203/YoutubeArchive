@@ -33,10 +33,31 @@ namespace YoutubeChannelArchive
     public partial class MainWindow : Window
     {
         private YoutubeFunc _youtube = new YoutubeFunc();
+        private enum addListType { video, playlist, channel };
 
         public MainWindow()
         {
             InitializeComponent();
+
+            //UrlTextBoxにフォーカスしたときに全選択するイベントを追加
+            UrlTextBox.GotFocus += (s, e) =>
+            {
+                UrlTextBox.SelectAll();
+            };
+
+            UrlTextBox.PreviewMouseLeftButtonDown += (s, e) =>
+            {
+                if (UrlTextBox.IsFocused)
+                {
+                    UrlTextBox.SelectionLength = 0;
+                    return;
+                }
+                e.Handled = true;
+                UrlTextBox.Focus();
+
+            };
+
+            //ダークテーマ
             /*
             PaletteHelper paletteHelper = new PaletteHelper();
             Theme theme = (Theme)paletteHelper.GetTheme();
@@ -45,19 +66,81 @@ namespace YoutubeChannelArchive
             //*/
         }
 
-        private void Button_Click(object sender, RoutedEventArgs e)
-        {
-            /*/
-            CheckFuncTest();
-            /*/
-            AddDownloadList();
-            //*/
-        }
-
+        //進捗バーの被コールバック関数
         private void OnProgressChanged(double progress)
         {
             DownloadProgress.Value = progress;
         }
+
+        //ボタンクリックイベント------------------------------------------------
+
+        private void AddDownloadButton_Click(object sender, RoutedEventArgs e)
+        {
+            AddDownloadList();
+        }
+
+        private async void AllDownloadButton_Click(object sender, RoutedEventArgs e)
+        {
+            var videoInfos = new List<(string url, string title)>();
+            foreach (UiVideoInfo item in DownloadListBox.Items)
+            {
+                if (item.VideoIcon.Visibility == Visibility.Visible)
+                {
+                    videoInfos.Add((url: item.Url.Text, title: item.TitleText.Text));
+                }
+                else if (item.PlaylistIcon.Visibility == Visibility.Visible)
+                {
+                    var videos = await _youtube.GetPlayListVideosAsync(item.Url.Text);
+                    if (videos != null)
+                    {
+                        foreach (var video in videos)
+                        {
+                            videoInfos.Add((url: video.Url, title: video.Title));
+                        }
+                    }
+                }
+                else if (item.ChannelIcon.Visibility == Visibility.Visible)
+                {
+                    var videos = await _youtube.GetChannelVideosAsync(item.Url.Text);
+                    if (videos != null)
+                    {
+                        foreach(var video in videos)
+                        {
+                            videoInfos.Add((url: video.Url, title: video.Title));
+                        }
+                    }
+                }
+            }
+
+            var savePath = SaveFolderPathDialog();
+            if (savePath == null)
+            {
+                //await DialogHost.Show(new MsgBox("キャンセルされました"));
+                return;
+            }
+
+            await DownloadedDialog(_youtube.DownloadVideoAsync(videoInfos, savePath, OnProgressChanged));
+        }
+
+        private async void SingleDownloadButton_Click(object sender, RoutedEventArgs e)
+        {
+            var videoInfos = new List<(string url, string title)>();
+            foreach (UiVideoInfo s in DownloadListBox.SelectedItems)
+            {
+                videoInfos.Add((url: s.Url.Text, title: s.TitleText.Text));
+            }
+
+            var savePath = SaveFolderPathDialog();
+            if (savePath == null)
+            {
+                //await DialogHost.Show(new MsgBox("キャンセルされました"));
+                return;
+            }
+
+            await DownloadedDialog(_youtube.DownloadVideoAsync(videoInfos, savePath, OnProgressChanged));
+        }
+
+        //------------------------------------------------
 
         internal async Task GetUrlActionType(string url)
         {
@@ -76,6 +159,8 @@ namespace YoutubeChannelArchive
                 $"videoChannelInfo: {(videoChannelInfo == null ? "なし" : "あり " + videoChannelInfo.Title)}\n"));
         }
 
+        //保存先選択ダイアログ------------------------------------------------
+
         internal string? SaveFilePathDialog(string defaultFileName, string defaultExt)
         {
             var dialog = new SaveFileDialog
@@ -84,6 +169,7 @@ namespace YoutubeChannelArchive
                 DefaultExt = defaultExt,
                 FileName = defaultFileName,
             };
+
             if (dialog.ShowDialog() == true)
             {
                 return dialog.FileName;
@@ -105,6 +191,8 @@ namespace YoutubeChannelArchive
             return null;
         }
 
+        //ダウンロード系------------------------------------------------
+
         private async Task DownloadOne(string url)
         {
             Video? vInfo = await _youtube.GetVideoInfoAsync(url);
@@ -121,7 +209,7 @@ namespace YoutubeChannelArchive
                 return;
             }
 
-            await Download(_youtube.DownloadVideoAsync(url, savePath, OnProgressChanged));
+            await DownloadedDialog(_youtube.DownloadVideoAsync(url, savePath, OnProgressChanged));
         }
 
         private async Task DownloadPlaylist(string url)
@@ -133,7 +221,7 @@ namespace YoutubeChannelArchive
                 return;
             }
 
-            await Download(_youtube.DownloadPlaylistVideosAsync(url, savePath, OnProgressChanged));
+            await DownloadedDialog(_youtube.DownloadPlaylistVideosAsync(url, savePath, OnProgressChanged));
         }
 
         private async Task DownloadChannelVideos(string url)
@@ -145,10 +233,10 @@ namespace YoutubeChannelArchive
                 return;
             }
 
-            await Download(_youtube.DownaloadChannelVideosAsync(url, savePath, OnProgressChanged));
+            await DownloadedDialog(_youtube.DownaloadChannelVideosAsync(url, savePath, OnProgressChanged));
         }
 
-        private async Task Download(Task downloadTask)
+        private async Task DownloadedDialog(Task downloadTask)
         {
             try
             {
@@ -165,90 +253,69 @@ namespace YoutubeChannelArchive
         private async void AddDownloadList()
         {
             string url = UrlTextBox.Text;
+            string errMsgBase = "を取得できませんでした\nURLが不正な可能性があります";
 
-            async void AddList()
+            void AddList(string title, Thumbnail thumbnail, string url, addListType type)
             {
-                /*
-                StackPanel panel = new StackPanel();
-                System.Windows.Controls.Image image = new System.Windows.Controls.Image();
-                BitmapImage bmpImage = new BitmapImage();
-                UrlTextBox.Text = s.Thumbnails.First().Url;
+                var uiVideoInfo = new UiVideoInfo();
+                uiVideoInfo.text = title;
+                uiVideoInfo.ImgSource = new BitmapImage(new Uri(thumbnail.Url));
+                uiVideoInfo.Url.Text = url;
 
-                panel.Children.Add(image);
-
-                DownloadListBox.Items.Add(s.Thumbnails.Cast<Image>());
-                //*/
-
-                var s = await _youtube.GetVideoInfoAsync(url);
-
-                int max = s.Thumbnails.Count();
-                MessageBox.Show($"{s.Thumbnails[max - 1].Resolution}\n{s.Thumbnails[0].Resolution}");
-
-                Image image = new Image();
-                BitmapImage imageSource = new BitmapImage(new Uri(s.Thumbnails.First().Url));
-                image.Source = imageSource;
-                image.Width = s.Thumbnails.First().Resolution.Width;
-                image.Height = s.Thumbnails.First().Resolution.Height;
-
-                var videoInfo = new VideoInfo();
-                videoInfo.Text = s.Title;
-                videoInfo.ImgSource = new BitmapImage(new Uri(s.Thumbnails.First().Url));
-
-                /*
-                StackPanel stack = new StackPanel();                
-                stack.Orientation = Orientation.Horizontal;
-                stack.Children.Add(image);
-                stack.Children.Add(textBlock);
-                //*/
-
-                DownloadListBox.Items.Add(videoInfo);
-
-                //画像のロード完了イベントを処理して、画像のサイズを設定する
-                /*
-                imageSource.DownloadCompleted += new EventHandler((object sender, EventArgs e) =>
+                //タイプごとのアイコンの設定
+                if (type == addListType.video)
                 {
-                    image.Width = imageSource.PixelWidth;
-                    image.Height = imageSource.PixelHeight;
-                });
-                //*/
+                    uiVideoInfo.VideoIcon.Visibility = Visibility.Visible;
+                }
+                else if (type == addListType.playlist)
+                {
+                    uiVideoInfo.PlaylistIcon.Visibility = Visibility.Visible;
+                }
+                else if (type == addListType.channel)
+                {
+                    uiVideoInfo.ChannelIcon.Visibility = Visibility.Visible;
+                }
+
+                DownloadListBox.Items.Add(uiVideoInfo);
             }
 
-            switch(UrlActionComboBox.Text)
+            if (UrlActionComboBox.Text == "単体ダウンロード")
             {
-                case "単体ダウンロード":
-                    if (await _youtube.GetVideoInfoAsync(url) == null)
-                    {
-                        await DialogHost.Show(new MsgBox("動画データを取得できませんでした\nURLが不正な可能性があります"));
-                    }
-                    else
-                    {
-                        AddList();
-                    }
-                    break;
-                case "プレイリストダウンロード":
-                    if (await _youtube.GetPlayListInfoAsync(url) == null)
-                    {
-                        await DialogHost.Show(new MsgBox("プレイリストデータを取得できませんでした\nURLが不正な可能性があります"));
-                    }
-                    else
-                    {
-                        AddList();
-                    }
-                    break;
-                case "チャンネルダウンロード":
-                    if (await _youtube.GetChannelInfoAsync(url) == null)
-                    {
-                        await DialogHost.Show(new MsgBox("チャンネルデータを取得できませんでした\nURLが不正な可能性があります"));
-                    }
-                    else
-                    {
-                        AddList();
-                    }
-                    break;
-                case "チャンネルアーカイブ":
-                    //後で実装
-                    break;
+                var videoInfo = await _youtube.GetVideoInfoAsync(url);
+
+                if (videoInfo == null)
+                {
+                    await DialogHost.Show(new MsgBox("動画データ" + errMsgBase));
+                    return;
+                }
+
+                AddList(videoInfo.Title, videoInfo.Thumbnails.First(), videoInfo.Url, addListType.video);
             }
+            else if (UrlActionComboBox.Text == "プレイリストダウンロード")
+            {
+                var playlistInfo = await _youtube.GetPlayListInfoAsync(url);
+
+                if (playlistInfo == null)
+                {
+                    await DialogHost.Show(new MsgBox("プレイリストの情報" + errMsgBase));
+                    return;
+                }
+
+                AddList(playlistInfo.Title, playlistInfo.Thumbnails.First(), playlistInfo.Url, addListType.playlist);
+            }
+            else if (UrlActionComboBox.Text == "チャンネルダウンロード")
+            {
+                var channelInfo = await _youtube.GetChannelInfoAsync(url);
+
+                if (channelInfo == null)
+                {
+                    await DialogHost.Show(new MsgBox("チャンネルの情報" + errMsgBase));
+                    return;
+                }
+
+                AddList(channelInfo.Title, channelInfo.Thumbnails.First(), channelInfo.Url, addListType.channel);
+            }
+
         }
 
         private async void CheckFuncTest()
@@ -388,6 +455,5 @@ namespace YoutubeChannelArchive
             char[] invalidChars = System.IO.Path.GetInvalidFileNameChars(); //ファイル名に使用できない文字
             return string.Concat(title.Select(c => invalidChars.Contains(c) ? '_' : c));  //使用できない文字を'_'に置換
         }
-
     }
 }

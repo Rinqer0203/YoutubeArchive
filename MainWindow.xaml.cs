@@ -72,6 +72,11 @@ namespace YoutubeChannelArchive
             DownloadProgress.Value = progress;
         }
 
+        private void Window_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+            grid1.Focus();
+        }
+
         //ボタンクリックイベント------------------------------------------------
 
         private void AddDownloadButton_Click(object sender, RoutedEventArgs e)
@@ -258,7 +263,7 @@ namespace YoutubeChannelArchive
             void AddList(string title, Thumbnail thumbnail, string url, addListType type)
             {
                 var uiVideoInfo = new UiVideoInfo();
-                uiVideoInfo.text = title;
+                uiVideoInfo.TitleText.Text = title;
                 uiVideoInfo.ImgSource = new BitmapImage(new Uri(thumbnail.Url));
                 uiVideoInfo.Url.Text = url;
 

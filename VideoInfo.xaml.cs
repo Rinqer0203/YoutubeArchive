@@ -20,19 +20,6 @@ namespace YoutubeChannelArchive
     /// </summary>
     public partial class UiVideoInfo : UserControl
     {
-
-        public string text
-        {
-            get
-            {
-                return TitleText.Text;
-            }
-            set
-            {
-                TitleText.Text = value;
-            }
-        }
-
         public ImageSource ImgSource
         {
             get

@@ -28,12 +28,20 @@ using MaterialDesignThemes.Wpf;
 using Microsoft.WindowsAPICodePack.Dialogs;
 using System.Reflection.Metadata;
 
+//並列ダウンロードテストの結果1:30程度の1080pの動画を60個同時にダウンロードすることができた
+/*  tasks
+    ダウンロード時にファイル名が重複するときの処理の追加
+    ダウンロード速度を表示させる
+    並列ダウンロード時に({ダウンロード済みの動画数}/{ダウンロード予定動画数})を左下のテキストボックスに追加
+    設定ウィンドウの追加
+//*/
 namespace YoutubeChannelArchive
 {
     public partial class MainWindow : Window
     {
         private YoutubeFunc _youtube = new YoutubeFunc();
         private enum addListType { video, playlist, channel };
+        private int _maxParallelDownloadCnt = 16;
 
         public MainWindow()
         {
@@ -263,7 +271,7 @@ namespace YoutubeChannelArchive
             void AddList(string title, Thumbnail thumbnail, string url, addListType type)
             {
                 var uiVideoInfo = new UiVideoInfo();
-                uiVideoInfo.TitleText.Text = title;
+                uiVideoInfo.TitleText.Text = title + cnt++;
                 uiVideoInfo.ImgSource = new BitmapImage(new Uri(thumbnail.Url));
                 uiVideoInfo.Url.Text = url;
 

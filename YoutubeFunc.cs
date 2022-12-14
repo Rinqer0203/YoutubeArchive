@@ -27,6 +27,7 @@ using System.Diagnostics;
 using MaterialDesignThemes.Wpf;
 using Microsoft.WindowsAPICodePack.Dialogs;
 using System.CodeDom;
+using System.Windows.Media.TextFormatting;
 
 namespace YoutubeChannelArchive
 {
@@ -188,17 +189,24 @@ namespace YoutubeChannelArchive
             }
         }
 
-        internal async Task DownloadVideoAsync(List<(string url, string title)> videoInfos, string saveFolderPath, Action<double> progressCallback)
+        internal async Task DownloadVideoAsync(List<(string url, string title)> videoInfos, string saveFolderPath, Action<double> progressCallback, int maxParallelDownloadCnt = 16)
         {
             if (_youtube == null) return;
 
             try
             {
                 var taskList = new List<Task>();
-                foreach (var s in videoInfos)
+
+                foreach (var s in videoInfos)   //最大並列ダウンロード数で処理する関数を作る
                 {
                     taskList.Add(DownloadVideoAsync(s.url, @$"{saveFolderPath}\{GetSafeTitle(s.title)}.mp4"));
+
+                    while (taskList.Count > maxParallelDownloadCnt)
+                    {
+                        //タスクコンプリートを監視して、コンプリートしたらリムーブする処理を追加する
+                    }
                 }
+
 
                 await WaitAllTask(taskList, progressCallback);
             }

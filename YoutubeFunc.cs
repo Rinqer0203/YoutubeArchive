@@ -3,6 +3,7 @@ using System.IO;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -34,6 +35,7 @@ namespace YoutubeChannelArchive
     internal class YoutubeFunc
     {
         internal YoutubeClient? _youtube { get; private set; } = null;
+        private const int _downloadCheckSpanMs = 20;
 
         internal YoutubeFunc()
         {
@@ -68,43 +70,6 @@ namespace YoutubeChannelArchive
             }
 
             return playlist;
-        }
-
-        internal async Task<IReadOnlyList<PlaylistVideo>?> GetPlayListVideosAsync(string url)
-        {
-            if (_youtube == null) return null;
-
-            IReadOnlyList<PlaylistVideo>? videos = null;
-
-            try
-            {
-                videos = await _youtube.Playlists.GetVideosAsync(url);
-            }
-            catch (PlaylistUnavailableException)
-            {
-                await DialogHost.Show(new MsgBox("プレイリストが非公開のため情報を取得できません。"));
-            }
-            catch (Exception ex)
-            {
-                //MessageBox.Show("video is exception\n" + ex.Message);
-            }
-
-            return videos;
-        }
-
-        internal async Task<IReadOnlyList<PlaylistVideo>?> GetChannelVideosAsync(string url)
-        {
-            if (_youtube == null) return null;
-
-            try
-            {
-                return await _youtube.Channels.GetUploadsAsync(url);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"GetChannelVideosAsync\n{ex.Message}");
-                return null;
-            }
         }
 
         internal async Task<Video?> GetVideoInfoAsync(string url)
@@ -159,9 +124,112 @@ namespace YoutubeChannelArchive
             }
         }
 
-        //ダウンロード系関数-------------------------------------------------
+        internal async Task<IReadOnlyList<PlaylistVideo>?> GetPlayListVideosAsync(string url)
+        {
+            if (_youtube == null) return null;
 
-        internal async Task DownloadVideoAsync(string url, string savePath, Action<double>? progressCallback = null)
+            IReadOnlyList<PlaylistVideo>? videos = null;
+
+            try
+            {
+                videos = await _youtube.Playlists.GetVideosAsync(url);
+            }
+            catch (PlaylistUnavailableException)
+            {
+                await DialogHost.Show(new MsgBox("プレイリストが非公開のため情報を取得できません。"));
+            }
+            catch (Exception ex)
+            {
+                //MessageBox.Show("video is exception\n" + ex.Message);
+            }
+
+            return videos;
+        }
+
+        internal async Task<IReadOnlyList<PlaylistVideo>?> GetChannelVideosAsync(string url)
+        {
+            if (_youtube == null) return null;
+
+            try
+            {
+                return await _youtube.Channels.GetUploadsAsync(url);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"GetChannelVideosAsync\n{ex.Message}");
+                return null;
+            }
+        }
+
+        //ダウンロード系関数-------------------------------------------------
+        internal async Task DownloadVideoAsync(List<(string url, string title)> videoInfos, string saveFolderPath,
+            Action<(double progress, int completeCnt, int errCnt)> progressCallback, int maxParallelDownloadCnt, Action<(string url, string title)>? onErrorItem,
+            CancellationToken cancelToken = default)
+        {
+            if (_youtube == null) return;
+
+            try
+            {
+                var taskList = new List<Task>();
+                var taskProgressList = new List<double>();
+                int completeCnt = 0, errCnt = 0;
+
+                for (int i = 0; i < videoInfos.Count; i++)
+                {
+                    taskProgressList.Add(0);
+                    //一度ローカル変数に入れないとラムダ式が実行されるときのiの値が使われてしまう(値型なのに...)
+                    //参考サイト：https://qiita.com/hiki_neet_p/items/8efc80739657b52922c7
+                    int ii = i;
+
+                    void onError()
+                    {
+                        onErrorItem?.Invoke((videoInfos[ii].url, videoInfos[ii].title));
+                        errCnt++;
+                    }
+
+                    Task task;
+                    if (System.IO.Path.GetExtension(videoInfos[i].title) == ".mp4")
+                    {
+                        task = DownloadVideoAsync(videoInfos[i].url, @$"{saveFolderPath}\{GetSafeTitle(videoInfos[i].title)}",
+                            progressCallback: (x) => taskProgressList[ii] = x, onComplete: () => completeCnt++, onError: onError,
+                            cancelToken: cancelToken);
+                    }
+                    else
+                    {
+                        task = DownloadAudioAsync(videoInfos[i].url, @$"{saveFolderPath}\{GetSafeTitle(videoInfos[i].title)}",
+                            progressCallback: (x) => taskProgressList[ii] = x, onComplete: () => completeCnt++, onError: onError,
+                            cancelToken: cancelToken);
+                    }
+                    taskList.Add(task);
+
+                    progressCallback((GetDictionaryProgress(taskProgressList, videoInfos.Count), completeCnt, errCnt));
+                    //並列ダウンロード数に達したらタスクリスト追加を停止し、一定時間処理をスリープ
+                    while (taskProgressList.Count(x => 1 > Math.Round(x, 1)) >= maxParallelDownloadCnt && !cancelToken.IsCancellationRequested)
+                    {
+                        await Task.Delay(_downloadCheckSpanMs);
+                        progressCallback((GetDictionaryProgress(taskProgressList, videoInfos.Count), completeCnt, errCnt));
+                    }
+                }
+
+                while (taskList.Count(x => x.IsCompleted) < taskList.Count)
+                {
+                    //proglessCallBack((double)cnt / tasks.Count);
+                    progressCallback((GetDictionaryProgress(taskProgressList, videoInfos.Count), completeCnt, errCnt));
+                    await Task.Delay(_downloadCheckSpanMs);
+                }
+
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"DownloadVideoAsync\n{ex.Message}");
+                //エラーログファイルを出力
+                PrintAddLog("errorLog.txt", ex.Message);
+                throw;
+            }
+        }
+
+        internal async Task DownloadVideoAsync(string url, string savePath, Action<double>? progressCallback = null,
+            Action? onComplete = null, Action? onError = null, CancellationToken cancelToken = default)
         {
             if (_youtube == null) return;
 
@@ -169,109 +237,57 @@ namespace YoutubeChannelArchive
             {
                 if (progressCallback == null)
                 {
-                    await _youtube.Videos.DownloadAsync(url, savePath);
+                    await _youtube.Videos.DownloadAsync(url, savePath, cancellationToken: cancelToken);
                 }
                 else
                 {
                     var progressHandler = new Progress<double>(progressCallback);
-                    await _youtube.Videos.DownloadAsync(url, savePath, progressHandler);
+                    await _youtube.Videos.DownloadAsync(url, savePath, progressHandler, cancellationToken: cancelToken);
                 }
+
+                if (onComplete != null)
+                    onComplete();
             }
-            catch (Exception ex)
+            catch
             {
-                MessageBox.Show($"DownloadVideoAsync\n{ex.Message}");
-                //エラーログファイルを出力
-                using (StreamWriter sw = new StreamWriter(@$"{System.IO.Directory.GetCurrentDirectory()}\errorLog.txt", true, Encoding.UTF8))
-                {
-                    sw.WriteLine(ex.Message);
-                }
-                throw;
+                //if (!cancelToken.IsCancellationRequested)
+                    onError?.Invoke();
             }
         }
 
-        internal async Task DownloadVideoAsync(List<(string url, string title)> videoInfos, string saveFolderPath, Action<double> progressCallback, int maxParallelDownloadCnt = 16)
+        internal async Task DownloadAudioAsync(string url, string savePath, Action<double>? progressCallback = null,
+            Action? onComplete = null, Action? onError = null, CancellationToken cancelToken = default)
         {
             if (_youtube == null) return;
 
             try
             {
-                var taskList = new List<Task>();
-
-                foreach (var s in videoInfos)   //最大並列ダウンロード数で処理する関数を作る
+                if (progressCallback == null)
                 {
-                    taskList.Add(DownloadVideoAsync(s.url, @$"{saveFolderPath}\{GetSafeTitle(s.title)}.mp4"));
-
-                    while (taskList.Count > maxParallelDownloadCnt)
-                    {
-                        //タスクコンプリートを監視して、コンプリートしたらリムーブする処理を追加する
-                    }
-                }
-
-
-                await WaitAllTask(taskList, progressCallback);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"DownloadVideoAsync\n{ex.Message}");
-                //エラーログファイルを出力
-                using (StreamWriter sw = new StreamWriter(@$"{System.IO.Directory.GetCurrentDirectory()}\errorLog.txt", true, Encoding.UTF8))
-                {
-                    sw.WriteLine(ex.Message);
-                }
-                throw;
-            }
-        }
-
-        internal async Task DownloadPlaylistVideosAsync(string url, string saveFolderPath, Action<double> progressCallBack)
-        {
-            if (_youtube == null) return;
-
-            try
-            {
-                var videoList = await GetPlayListVideosAsync(url);
-
-                if (videoList != null)
-                {
-                    await DialogHost.Show(new MsgBox($"{saveFolderPath}に保存します"));
-
-                    await WaitAllTask(GetVieosTask(videoList, saveFolderPath), progressCallBack);
+                    var streamManifest = await _youtube.Videos.Streams.GetManifestAsync(url);
+                    var audioStreamInfo = streamManifest.GetAudioOnlyStreams().GetWithHighestBitrate();
+                    await _youtube.Videos.Streams.DownloadAsync(audioStreamInfo, savePath, cancellationToken: cancelToken);
                 }
                 else
                 {
-                    await DialogHost.Show(new MsgBox("プレイリストに動画が含まれていません"));
+                    var streamManifest = await _youtube.Videos.Streams.GetManifestAsync(url);
+                    var audioStreamInfo = streamManifest.GetAudioOnlyStreams().GetWithHighestBitrate();
+
+                    var progressHandler = new Progress<double>(progressCallback);
+                    await _youtube.Videos.Streams.DownloadAsync(audioStreamInfo, savePath, progressHandler, cancellationToken: cancelToken);
                 }
+
+                onComplete?.Invoke();
             }
             catch
             {
-                throw;
+                //if (!cancelToken.IsCancellationRequested)
+                    onError?.Invoke();
             }
         }
 
-        internal async Task DownaloadChannelVideosAsync(string url, string saveFolderPath, Action<double> progressCallBack)
-        {
-            if (_youtube == null) return;
 
-            try
-            {
-                await DialogHost.Show(new MsgBox($"{saveFolderPath}に保存します"));
-
-                var videoList = await GetChannelVideosAsync(url);
-
-                if (videoList == null)
-                {
-                    await DialogHost.Show(new MsgBox("チャンネルの動画リストを取得できませんでした"));
-                    return;
-                }
-
-                await WaitAllTask(GetVieosTask(videoList, saveFolderPath), progressCallBack);
-
-            }
-            catch
-            {
-                throw;
-            }
-
-        }
+        //プレイリストとチャンネルの動画ダウンロード関数はいらないかも
 
         private List<Task> GetVieosTask(IReadOnlyList<PlaylistVideo> videoList, string saveFolderPath)
         {
@@ -283,44 +299,27 @@ namespace YoutubeChannelArchive
             return taskList;
         }
 
-        internal async Task WaitAllTask(List<Task> tasks, Action<double> proglessCallBack)
+        internal int GetCompleteTasksCnt(List<Task> tasks)
         {
             int cnt = 0;
-            while (cnt < tasks.Count)
+            foreach (var task in tasks)
             {
-                cnt = 0;
-                foreach (var s in tasks)
-                {
-                    if (s.IsCompleted)
-                        cnt++;
-                }
-                proglessCallBack((double)cnt / tasks.Count);
-                await Task.Delay(10);
+                if (task.IsCompleted)
+                    cnt++;
             }
+            return cnt;
         }
 
-        internal async Task DownloadOnlyAudioAsync(string url, string savePath)
+        internal double GetDictionaryProgress(List<double> taskProgressList, int maxCnt)
         {
-            if (_youtube != null)
-            {
-                var streamManifest = await _youtube.Videos.Streams.GetManifestAsync(url);
-                var audioStreamInfo = streamManifest.GetAudioOnlyStreams().GetWithHighestBitrate();
-
-                await _youtube.Videos.Streams.DownloadAsync(audioStreamInfo, savePath + $"sound_only.{audioStreamInfo.Container}");
-            }
+            return taskProgressList.Sum() / maxCnt;
         }
 
-        internal async Task DownloadOnlyVideoAsync(string url, string savePath)
+        private void PrintAddLog(string fileName, string message)
         {
-            if (_youtube != null)
+            using (StreamWriter sw = new StreamWriter(@$"{System.IO.Directory.GetCurrentDirectory()}\{fileName}", true, Encoding.UTF8))
             {
-                var streamManifest = await _youtube.Videos.Streams.GetManifestAsync(url);
-                var movieStreamInfo = streamManifest
-                    .GetVideoOnlyStreams()
-                    .Where(s => s.Container == Container.Mp4)
-                    .GetWithHighestVideoQuality();
-
-                await _youtube.Videos.Streams.DownloadAsync(movieStreamInfo, savePath + $"no_sound.{movieStreamInfo.Container}");
+                sw.WriteLine(message);
             }
         }
     }

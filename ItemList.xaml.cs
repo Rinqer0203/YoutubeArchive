@@ -16,20 +16,13 @@ using System.Windows.Shapes;
 namespace YoutubeChannelArchive
 {
     /// <summary>
-    /// MyUserControl.xaml の相互作用ロジック
+    /// ItemList.xaml の相互作用ロジック
     /// </summary>
-    public partial class MsgBox : UserControl
+    public partial class ItemList : UserControl
     {
-        public MsgBox(string message, bool HideCancelButton = false)
+        public ItemList()
         {
             InitializeComponent();
-            
-            txtMessage.Text = message;
-
-            if (HideCancelButton)
-                CancelButton.Visibility = Visibility.Visible;
-            else
-                CancelButton.Visibility = Visibility.Collapsed;
         }
     }
 }

@@ -60,8 +60,6 @@
                     Content="プレイリストダウンロード" />
                     <ComboBoxItem
                     Content="チャンネルダウンロード" />
-                    <ComboBoxItem
-                    Content="チャンネルアーカイブ" />
                 </ComboBox>
                 <ComboBox  x:Name="DownloadExtensionTypeComboBox" HorizontalAlignment="Right" Width="156" SelectedIndex="0" Height="26" FontSize="14" Margin="0,0,5,5">
                     <ComboBoxItem
@@ -90,7 +88,7 @@
                         materialDesign:ColorZoneAssist.Background="#00FFFFFF"
                         Style="{StaticResource MaterialDesignFilledTabControl}">
                 <TabItem Header="ダウンロードリスト" Height="30" Padding="0" MaxWidth="Infinity">
-                    <local:ItemList x:Name="DownloadListBox"/>
+                    <local:ItemList x:Name="DownloadList"/>
                 </TabItem>
                 <TabItem Header="エラーダウンロードリスト"  Height="30" Padding="0" MaxWidth="Infinity">
                     <local:ItemList x:Name="ErrDownloadList"/>

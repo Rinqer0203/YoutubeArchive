@@ -163,7 +163,8 @@ namespace YoutubeChannelArchive
 
         //ダウンロード系関数-------------------------------------------------
         internal async Task DownloadVideoAsync(List<(string url, string title)> videoInfos, string saveFolderPath,
-            Action<(double progress, int completeCnt, int errCnt)> progressCallback, int maxParallelDownloadCnt, Action<(string url, string title)>? onErrorItem,
+            Action<(double progress, int completeCnt, int errCnt)> progressCallback, int maxParallelDownloadCnt, 
+            Action<string>? onCompleteItem = null, Action<(string url, string title)>? onErrorItem = null,
             CancellationToken cancelToken = default)
         {
             if (_youtube == null) return;
@@ -187,35 +188,41 @@ namespace YoutubeChannelArchive
                         errCnt++;
                     }
 
+                    void onComplete()
+                    {
+                        onCompleteItem?.Invoke(videoInfos[ii].title);
+                        completeCnt++;
+                    }
+
                     Task task;
                     if (System.IO.Path.GetExtension(videoInfos[i].title) == ".mp4")
                     {
                         task = DownloadVideoAsync(videoInfos[i].url, @$"{saveFolderPath}\{GetSafeTitle(videoInfos[i].title)}",
-                            progressCallback: (x) => taskProgressList[ii] = x, onComplete: () => completeCnt++, onError: onError,
+                            progressCallback: (x) => taskProgressList[ii] = x, onComplete: onComplete, onError: onError,
                             cancelToken: cancelToken);
                     }
                     else
                     {
                         task = DownloadAudioAsync(videoInfos[i].url, @$"{saveFolderPath}\{GetSafeTitle(videoInfos[i].title)}",
-                            progressCallback: (x) => taskProgressList[ii] = x, onComplete: () => completeCnt++, onError: onError,
+                            progressCallback: (x) => taskProgressList[ii] = x, onComplete: onComplete, onError: onError,
                             cancelToken: cancelToken);
                     }
                     taskList.Add(task);
 
-                    progressCallback((GetDictionaryProgress(taskProgressList, videoInfos.Count), completeCnt, errCnt));
+                    progressCallback((taskProgressList.Sum() / videoInfos.Count, completeCnt, errCnt));
                     //並列ダウンロード数に達したらタスクリスト追加を停止し、一定時間処理をスリープ
                     while (taskProgressList.Count(x => 1 > Math.Round(x, 1)) >= maxParallelDownloadCnt && !cancelToken.IsCancellationRequested)
                     {
                         await Task.Delay(_downloadCheckSpanMs);
-                        progressCallback((GetDictionaryProgress(taskProgressList, videoInfos.Count), completeCnt, errCnt));
+                        progressCallback((taskProgressList.Sum() / videoInfos.Count, completeCnt, errCnt));
                     }
                 }
 
+                //すべてのタスクが終了するまで待つ
                 while (taskList.Count(x => x.IsCompleted) < taskList.Count)
                 {
-                    //proglessCallBack((double)cnt / tasks.Count);
-                    progressCallback((GetDictionaryProgress(taskProgressList, videoInfos.Count), completeCnt, errCnt));
                     await Task.Delay(_downloadCheckSpanMs);
+                    progressCallback((taskProgressList.Sum() / videoInfos.Count, completeCnt, errCnt));
                 }
 
             }
@@ -248,10 +255,9 @@ namespace YoutubeChannelArchive
                 if (onComplete != null)
                     onComplete();
             }
-            catch
+            catch (Exception ex)
             {
-                //if (!cancelToken.IsCancellationRequested)
-                    onError?.Invoke();
+                onError?.Invoke();
             }
         }
 
@@ -281,38 +287,8 @@ namespace YoutubeChannelArchive
             }
             catch
             {
-                //if (!cancelToken.IsCancellationRequested)
-                    onError?.Invoke();
+                onError?.Invoke();
             }
-        }
-
-
-        //プレイリストとチャンネルの動画ダウンロード関数はいらないかも
-
-        private List<Task> GetVieosTask(IReadOnlyList<PlaylistVideo> videoList, string saveFolderPath)
-        {
-            var taskList = new List<Task>();
-            for (int i = 0; i < videoList.Count; i++)
-            {
-                taskList.Add(DownloadVideoAsync(videoList[i].Url, @$"{saveFolderPath}\{GetSafeTitle(videoList[i].Title)}.mp4"));
-            }
-            return taskList;
-        }
-
-        internal int GetCompleteTasksCnt(List<Task> tasks)
-        {
-            int cnt = 0;
-            foreach (var task in tasks)
-            {
-                if (task.IsCompleted)
-                    cnt++;
-            }
-            return cnt;
-        }
-
-        internal double GetDictionaryProgress(List<double> taskProgressList, int maxCnt)
-        {
-            return taskProgressList.Sum() / maxCnt;
         }
 
         private void PrintAddLog(string fileName, string message)

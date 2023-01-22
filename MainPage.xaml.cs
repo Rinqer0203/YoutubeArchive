@@ -50,6 +50,8 @@ namespace YoutubeChannelArchive
         private YoutubeFunc _youtube = new YoutubeFunc();
         private BitmapImage _soundThumbnail = new BitmapImage();
         private CancellationTokenSource? _tokenSource = null;
+        private bool _isBusy = false;
+        private bool _isDownloadingErrList = false;
 
         private enum addListType { video, playlist, channel };
 
@@ -122,8 +124,6 @@ namespace YoutubeChannelArchive
             DownloadProgress.Value = progressInfo.progress;
 
             double num = Math.Round((progressInfo.progress * 100) / 1, 1, MidpointRounding.AwayFromZero);
-            //整数部は2桁で0埋め、小数部は1桁指定
-            //string txt = ((int)num).ToString("00") + (num - (int)num).ToString("F1").TrimStart('0');
             DownloadStateLabel.Content = $"ダウンロード中 ：{(string.Format("{0:F1}", num)).PadLeft(4)}%  " +
                 $"(完了：{progressInfo.completeNum}  失敗：{progressInfo.failureNum})";
         }
@@ -149,6 +149,18 @@ namespace YoutubeChannelArchive
             paletteHelper.SetTheme(theme);
         }
 
+        private List<UiVideoInfo> GetDownloadTargetList()
+        {
+            if (DownloadListTabControl.SelectedIndex == 0)
+            {
+                return DownloadList.ListBox.Items.Cast<UiVideoInfo>().ToList();
+            }
+            else
+            {
+                return ErrDownloadList.ListBox.Items.Cast<UiVideoInfo>().ToList();
+            }
+        }
+
         //ボタンクリックイベント------------------------------------------------
 
         private async void AddDownloadButton_Click(object sender, RoutedEventArgs e)
@@ -159,17 +171,32 @@ namespace YoutubeChannelArchive
             //引数で渡されたurlタイプによってアイコンを可視化させリストに追加する
             void AddList(string title, Thumbnail thumbnail, string url, addListType type)
             {
-                var uiVideoInfo = new UiVideoInfo();
+                string itemTitle;
+                BitmapImage itemThumbnail;
+
                 if (DownloadExtensionTypeComboBox.Text == "動画")
                 {
-                    uiVideoInfo.TitleText.Text = title + ".mp4";
-                    uiVideoInfo.ImgSource = new BitmapImage(new Uri(thumbnail.Url));
+                    itemTitle = title + ".mp4";
+                    itemThumbnail = new BitmapImage(new Uri(thumbnail.Url));
                 }
                 else
                 {
-                    uiVideoInfo.TitleText.Text = title + ".mp3";
-                    uiVideoInfo.ImgSource = _soundThumbnail;
+                    itemTitle = title + ".mp3";
+                    itemThumbnail = _soundThumbnail;
                 }
+
+                //重複するタイトルのアイテムがすでに存在していれば追加しない
+                foreach (UiVideoInfo item in DownloadList.ListBox.Items)
+                {
+                    if (item.Title.Text.Contains(itemTitle))
+                    {
+                        return;
+                    }
+                }
+
+                var uiVideoInfo = new UiVideoInfo();
+                uiVideoInfo.Title.Text = itemTitle;
+                uiVideoInfo.Thumbnail.Source = itemThumbnail;
                 uiVideoInfo.Url.Text = url;
 
                 //タイプごとのアイコンの設定
@@ -185,7 +212,8 @@ namespace YoutubeChannelArchive
                         uiVideoInfo.ChannelIcon.Visibility = Visibility.Visible;
                         break;
                 }
-                DownloadListBox.ListBox.Items.Add(uiVideoInfo);
+                DownloadList.ListBox.Items.Add(uiVideoInfo);
+
                 //タブをダウンロードリストを選択している状態にする
                 DownloadListTabControl.SelectedIndex = 0;
             }
@@ -231,7 +259,7 @@ namespace YoutubeChannelArchive
 
         private async void AllItemsDownloadButton_Click(object sender, RoutedEventArgs e)
         {
-            List<UiVideoInfo> uiVideoInfos = DownloadListBox.ListBox.Items.Cast<UiVideoInfo>().ToList();
+            List<UiVideoInfo> uiVideoInfos = GetDownloadTargetList();
             if (uiVideoInfos.Count == 0)
             {
                 await DialogHost.Show(new MsgBox("ダウンロードリストにアイテムがありません"));
@@ -244,7 +272,7 @@ namespace YoutubeChannelArchive
 
         private async void SelectedItemsDownloadButton_Click(object sender, RoutedEventArgs e)
         {
-            List<UiVideoInfo> uiVideoInfos = DownloadListBox.ListBox.SelectedItems.Cast<UiVideoInfo>().ToList();
+            List<UiVideoInfo> uiVideoInfos = GetDownloadTargetList();
             if (uiVideoInfos.Count == 0)
             {
                 await DialogHost.Show(new MsgBox("アイテムを選択してください"));
@@ -277,9 +305,19 @@ namespace YoutubeChannelArchive
 
         private void BinButton_Click(object sender, RoutedEventArgs e)
         {
-            while (DownloadListBox.ListBox.SelectedItem != null)
+            ListBox targetListBox;
+            if (DownloadListTabControl.SelectedIndex == 0)
             {
-                DownloadListBox.ListBox.Items.Remove(DownloadListBox.ListBox.SelectedItem);
+                targetListBox = DownloadList.ListBox;
+            }
+            else
+            {
+                targetListBox = ErrDownloadList.ListBox;
+            }
+
+            while (targetListBox.SelectedItem != null)
+            {
+                targetListBox.Items.Remove(targetListBox.SelectedItem);
             }
         }
 
@@ -352,6 +390,10 @@ namespace YoutubeChannelArchive
 
         private async void DownloadListItems(List<UiVideoInfo> downloadList)
         {
+            if (_isBusy) return;
+            _isBusy = true;
+            _isDownloadingErrList = (DownloadListTabControl.SelectedIndex == 0 ? false : true);
+
             var videoInfos = new List<(string url, string title)>();
 
             //videoInfosに引数のdownloadListを動画単位に変換して追加する
@@ -359,7 +401,7 @@ namespace YoutubeChannelArchive
             {
                 if (item.VideoIcon.Visibility == Visibility.Visible)
                 {
-                    videoInfos.Add((url: item.Url.Text, title: item.TitleText.Text));
+                    videoInfos.Add((url: item.Url.Text, title: item.Title.Text));
                 }
                 else if (item.PlaylistIcon.Visibility == Visibility.Visible)
                 {
@@ -368,7 +410,7 @@ namespace YoutubeChannelArchive
                     {
                         foreach (var video in videos)
                         {
-                            videoInfos.Add((url: video.Url, title: video.Title + System.IO.Path.GetExtension(item.TitleText.Text)));
+                            videoInfos.Add((url: video.Url, title: video.Title + System.IO.Path.GetExtension(item.Title.Text)));
                         }
                     }
                 }
@@ -379,7 +421,7 @@ namespace YoutubeChannelArchive
                     {
                         foreach (var video in videos)
                         {
-                            videoInfos.Add((url: video.Url, title: video.Title + System.IO.Path.GetExtension(item.TitleText.Text)));
+                            videoInfos.Add((url: video.Url, title: video.Title + System.IO.Path.GetExtension(item.Title.Text)));
                         }
                     }
                 }
@@ -388,35 +430,57 @@ namespace YoutubeChannelArchive
             _tokenSource = new CancellationTokenSource();
             var cancelToken = _tokenSource.Token;
 
-            //videoInfosのダウンロードタスクを生成
-            Task task = _youtube.DownloadVideoAsync(videoInfos, SavePathComboBox.Text, progressCallback: OnProgressChanged, 
-                Settings.Default.MaxParallelDownloadNum, cancelToken: cancelToken, onErrorItem: async x => {
-                    //エラーアイテムをエラーダウンロードリストに追加する
-                    var uiVideoInfo = new UiVideoInfo();
-                    if (System.IO.Path.GetExtension(x.title) == ".mp4")
+            void onComplete(string title)
+            {
+                if (_isDownloadingErrList)
+                {
+                    foreach(UiVideoInfo item in ErrDownloadList.ListBox.Items)
                     {
-                        var info = await _youtube.GetVideoInfoAsync(x.url);
-                        if (info != null)
+                        if (item.Title.Text == title)
                         {
-                            uiVideoInfo.ImgSource = new BitmapImage(new Uri(info.Thumbnails.First().Url));
+                            ErrDownloadList.ListBox.Items.Remove(item);
+                            return;
                         }
                     }
-                    else
+                }
+            }
+
+            async void onError((string url, string title) itemInfo)
+            {
+                if (_isDownloadingErrList) return;
+                //エラーアイテムをエラーダウンロードリストに追加する
+                var uiVideoInfo = new UiVideoInfo();
+                if (System.IO.Path.GetExtension(itemInfo.title) == ".mp4")
+                {
+                    var info = await _youtube.GetVideoInfoAsync(itemInfo.url);
+                    if (info != null)
                     {
-                        uiVideoInfo.ImgSource = _soundThumbnail;
+                        uiVideoInfo.ImgSource = new BitmapImage(new Uri(info.Thumbnails.First().Url));
                     }
-                    uiVideoInfo.TitleText.Text = x.title;
-                    uiVideoInfo.VideoIcon.Visibility = Visibility.Visible;
-                    ErrDownloadList.ListBox.Items.Add(uiVideoInfo);
-                });
+                }
+                else
+                {
+                    uiVideoInfo.ImgSource = _soundThumbnail;
+                }
+                uiVideoInfo.Title.Text = itemInfo.title;
+                uiVideoInfo.Url.Text = itemInfo.url;
+                uiVideoInfo.VideoIcon.Visibility = Visibility.Visible;
+                ErrDownloadList.ListBox.Items.Add(uiVideoInfo);
+            }
+
+            //videoInfosのダウンロードタスクを生成
+            Task task = _youtube.DownloadVideoAsync(videoInfos, SavePathComboBox.Text, progressCallback: OnProgressChanged, 
+               Settings.Default.MaxParallelDownloadNum, cancelToken: cancelToken, onCompleteItem: onComplete, onErrorItem:onError);
 
             await ShowDownloadedDialog(task);
 
             //ユーザ設定によってダウンロード完了後にリストをクリア
-            if (Settings.Default.IsRemoveCompletedItem && _tokenSource != null && !_tokenSource.IsCancellationRequested)
+            if (Settings.Default.IsRemoveCompletedItem)
             {
-                DownloadListBox.ListBox.Items.Clear();
+                DownloadList.ListBox.Items.Clear();
             }
+
+            _isBusy = false;
         }
 
         //単体とプレイリスト、チャンネルの関数いらんかも
@@ -475,15 +539,5 @@ namespace YoutubeChannelArchive
 
         }
 
-        private string GetSafeSavepath(string savePath, string title, string extension)
-        {
-            return @$"{savePath}\{GetSafeTitle(Title)}.{extension}";
-        }
-
-        public string GetSafeTitle(string title)
-        {
-            char[] invalidChars = System.IO.Path.GetInvalidFileNameChars(); //ファイル名に使用できない文字
-            return string.Concat(title.Select(c => invalidChars.Contains(c) ? '_' : c));  //使用できない文字を'_'に置換
-        }
     }
 }

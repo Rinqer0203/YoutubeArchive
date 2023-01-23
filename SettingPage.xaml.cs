@@ -1,29 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
-using System.Windows.Shapes;
 using System.Text.RegularExpressions;
 
-namespace YoutubeChannelArchive
+namespace YoutubeArchive
 {
-    /// <summary>
-    /// SettingPage.xaml の相互作用ロジック
-    /// </summary>
     public partial class SettingPage : Page
     {
         public static SettingPage? instance { get; private set; } = null;
-        //public enum defaultFileNameTypes { title, movieTitleAndDate, channelTitleAndMovieTitle }
-        public string[] defaultFileNameTypes = {"動画タイトル", "動画タイトル_日付", "チャンネル名_動画タイトル"};
+        public string[] defaultFileNameTypes = {"動画タイトル", "動画タイトル_ダウンロード日付", "チャンネル名_動画タイトル"};
 
         public SettingPage()
         {

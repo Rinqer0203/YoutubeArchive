@@ -2,48 +2,23 @@
 using System.IO;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
-using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
-using System.Windows.Shapes;
 using Microsoft.Win32;
 using YoutubeExplode.Videos;
 using YoutubeExplode.Playlists;
 using YoutubeExplode.Channels;
-using YoutubeExplode.Exceptions;
 using YoutubeExplode.Common;
-using YoutubeExplode;
-using YoutubeExplode.Videos.Streams;
-using YoutubeExplode.Converter;
-using System.Media;
 using System.Threading;
-using System.Diagnostics;
 using MaterialDesignThemes.Wpf;
 using Microsoft.WindowsAPICodePack.Dialogs;
-using System.Reflection.Metadata;
 
-//並列ダウンロードテストの結果1:30程度の1080pの動画を60個同時にダウンロードすることができた
-/*  tasks
-    ダウンロード時にファイル名が重複するときの処理の追加
-    ダウンロード速度を表示させる
-    並列ダウンロード時に({ダウンロード済みの動画数}/{ダウンロード予定動画数})を左下のテキストボックスに追加
-    設定ウィンドウの追加
-    同じURLのアイテムをlistに追加させない
-    保存先パスを事前に設定させる
-    ダウンロードリストの選択を複数できるようにする
-    エラーURLに対する処理（一括ダウンロード）
-    名前が重複したときに(1) or 上書きで設定項目を作る
-//*/
-namespace YoutubeChannelArchive
+namespace YoutubeArchive
 {
-
     public partial class MainPage : Page
     {
         public static MainPage? _instance { get; private set; } = null;
@@ -119,7 +94,7 @@ namespace YoutubeChannelArchive
         }
 
         //進捗バーの被コールバック関数
-        private void OnProgressChanged((double progress, int completeNum , int failureNum ) progressInfo)
+        private void OnProgressChanged((double progress, int completeNum, int failureNum) progressInfo)
         {
             DownloadProgress.Value = progressInfo.progress;
 
@@ -149,15 +124,22 @@ namespace YoutubeChannelArchive
             paletteHelper.SetTheme(theme);
         }
 
-        private List<UiVideoInfo> GetDownloadTargetList()
+        //選択されているタブに応じてダウンロードリストorエラーダウンロードリストのListBoxを返す
+        private List<UiVideoInfo> GetDownloadTargetList(bool isSelectedItems)
         {
             if (DownloadListTabControl.SelectedIndex == 0)
             {
-                return DownloadList.ListBox.Items.Cast<UiVideoInfo>().ToList();
+                if (isSelectedItems)
+                    return DownloadList.ListBox.SelectedItems.Cast<UiVideoInfo>().ToList();
+                else
+                    return DownloadList.ListBox.Items.Cast<UiVideoInfo>().ToList();
             }
             else
             {
-                return ErrDownloadList.ListBox.Items.Cast<UiVideoInfo>().ToList();
+                if (isSelectedItems)
+                    return ErrDownloadList.ListBox.SelectedItems.Cast<UiVideoInfo>().ToList();
+                else
+                    return ErrDownloadList.ListBox.Items.Cast<UiVideoInfo>().ToList();
             }
         }
 
@@ -259,7 +241,7 @@ namespace YoutubeChannelArchive
 
         private async void AllItemsDownloadButton_Click(object sender, RoutedEventArgs e)
         {
-            List<UiVideoInfo> uiVideoInfos = GetDownloadTargetList();
+            List<UiVideoInfo> uiVideoInfos = GetDownloadTargetList(false);
             if (uiVideoInfos.Count == 0)
             {
                 await DialogHost.Show(new MsgBox("ダウンロードリストにアイテムがありません"));
@@ -272,7 +254,7 @@ namespace YoutubeChannelArchive
 
         private async void SelectedItemsDownloadButton_Click(object sender, RoutedEventArgs e)
         {
-            List<UiVideoInfo> uiVideoInfos = GetDownloadTargetList();
+            List<UiVideoInfo> uiVideoInfos = GetDownloadTargetList(true);
             if (uiVideoInfos.Count == 0)
             {
                 await DialogHost.Show(new MsgBox("アイテムを選択してください"));
@@ -334,25 +316,6 @@ namespace YoutubeChannelArchive
         {
             NavigationService.Navigate(SettingPage.GetInstance());
         }
-        //------------------------------------------------
-
-        //いらんかも
-        internal async Task GetUrlActionType(string url)
-        {
-            Video? videoInfo = await _youtube.GetVideoInfoAsync(url);
-            Playlist? playlistInfo = await _youtube.GetPlayListInfoAsync(url);
-            Channel? channelInfo = await _youtube.GetChannelInfoAsync(url);
-            Channel? videoChannelInfo = null;
-            if (videoInfo != null)
-            {
-                videoChannelInfo = await _youtube.GetChannelInfoAsync(videoInfo.Author.ChannelUrl);
-            }
-
-            await DialogHost.Show(new MsgBox($"videoInfo : {(videoInfo == null ? "なし" : "あり " + videoInfo.Title)}\n" +
-                $"playlist: {(playlistInfo == null ? "なし" : "あり " + playlistInfo.Title)}\n" +
-                $"channelInfo: {(channelInfo == null ? "なし" : "あり " + channelInfo.Title)}\n" +
-                $"videoChannelInfo: {(videoChannelInfo == null ? "なし" : "あり " + videoChannelInfo.Title)}\n"));
-        }
 
         //保存先選択ダイアログ------------------------------------------------
 
@@ -386,9 +349,8 @@ namespace YoutubeChannelArchive
             return null;
         }
 
-        //ダウンロード系------------------------------------------------
-
-        private async void DownloadListItems(List<UiVideoInfo> downloadList)
+        //ダウンロード処理
+        private async void DownloadListItems(List<UiVideoInfo> targetDownloadList)
         {
             if (_isBusy) return;
             _isBusy = true;
@@ -397,11 +359,11 @@ namespace YoutubeChannelArchive
             var videoInfos = new List<(string url, string title)>();
 
             //videoInfosに引数のdownloadListを動画単位に変換して追加する
-            foreach (UiVideoInfo item in downloadList)
+            foreach (UiVideoInfo item in targetDownloadList)
             {
                 if (item.VideoIcon.Visibility == Visibility.Visible)
                 {
-                    videoInfos.Add((url: item.Url.Text, title: item.Title.Text));
+                    videoInfos.Add((url: item.Url.Text, title: await GetSaveVideoTitle(item.Title.Text, item.Url.Text)));
                 }
                 else if (item.PlaylistIcon.Visibility == Visibility.Visible)
                 {
@@ -410,7 +372,8 @@ namespace YoutubeChannelArchive
                     {
                         foreach (var video in videos)
                         {
-                            videoInfos.Add((url: video.Url, title: video.Title + System.IO.Path.GetExtension(item.Title.Text)));
+                            string title = await GetSaveVideoTitle(video.Title, System.IO.Path.GetExtension(item.Title.Text), video.Url);
+                            videoInfos.Add((url: video.Url, title: title));
                         }
                     }
                 }
@@ -421,12 +384,14 @@ namespace YoutubeChannelArchive
                     {
                         foreach (var video in videos)
                         {
-                            videoInfos.Add((url: video.Url, title: video.Title + System.IO.Path.GetExtension(item.Title.Text)));
+                            string title = await GetSaveVideoTitle(video.Title, System.IO.Path.GetExtension(item.Title.Text), video.Url);
+                            videoInfos.Add((url: video.Url, title: title));
                         }
                     }
                 }
             }
 
+            //ダウンロードキャンセル用トークンを生成
             _tokenSource = new CancellationTokenSource();
             var cancelToken = _tokenSource.Token;
 
@@ -434,7 +399,7 @@ namespace YoutubeChannelArchive
             {
                 if (_isDownloadingErrList)
                 {
-                    foreach(UiVideoInfo item in ErrDownloadList.ListBox.Items)
+                    foreach (UiVideoInfo item in ErrDownloadList.ListBox.Items)
                     {
                         if (item.Title.Text == title)
                         {
@@ -469,75 +434,69 @@ namespace YoutubeChannelArchive
             }
 
             //videoInfosのダウンロードタスクを生成
-            Task task = _youtube.DownloadVideoAsync(videoInfos, SavePathComboBox.Text, progressCallback: OnProgressChanged, 
-               Settings.Default.MaxParallelDownloadNum, cancelToken: cancelToken, onCompleteItem: onComplete, onErrorItem:onError);
+            Task task = _youtube.DownloadVideoAsync(videoInfos, SavePathComboBox.Text, progressCallback: OnProgressChanged,
+               Settings.Default.MaxParallelDownloadNum, cancelToken: cancelToken, onCompleteItem: onComplete, onErrorItem: onError);
 
-            await ShowDownloadedDialog(task);
+            await ShowDownloadedDialog(task, cancelToken);
 
-            //ユーザ設定によってダウンロード完了後にリストをクリア
             if (Settings.Default.IsRemoveCompletedItem)
             {
-                DownloadList.ListBox.Items.Clear();
+                targetDownloadList.ForEach(x => DownloadList.ListBox.Items.Remove(x));
             }
 
             _isBusy = false;
         }
 
-        //単体とプレイリスト、チャンネルの関数いらんかも
-        //private async Task DownloadOne(string url)
-        //{
-        //    Video? vInfo = await _youtube.GetVideoInfoAsync(url);
-        //    if (vInfo == null)
-        //    {
-        //        await DialogHost.Show(new MsgBox("動画データを取得できませんでした"));
-        //        return;
-        //    }
-
-        //    var savePath = SaveFilePathDialog(GetSafeTitle(vInfo.Title), "mp4");
-        //    if (savePath == null)
-        //    {
-        //        await DialogHost.Show(new MsgBox("キャンセルされました"));
-        //        return;
-        //    }
-
-        //    await ShowDownloadedDialog(_youtube.DownloadVideoAsync(url, savePath, OnProgressChanged));
-        //}
-        //private async Task DownloadPlaylist(string url)
-        //{
-        //    var savePath = SaveFolderPathDialog();
-        //    if (savePath == null)
-        //    {
-        //        await DialogHost.Show(new MsgBox("キャンセルされました"));
-        //        return;
-        //    }
-
-        //    await ShowDownloadedDialog(_youtube.DownloadPlaylistVideosAsync(url, savePath, OnProgressChanged));
-        //}
-        //private async Task DownloadChannelVideos(string url)
-        //{
-        //    var savePath = SaveFolderPathDialog();
-        //    if (savePath == null)
-        //    {
-        //        await DialogHost.Show(new MsgBox("キャンセルさました"));
-        //        return;
-        //    }
-
-        //    await ShowDownloadedDialog(_youtube.DownaloadChannelVideosAsync(url, savePath, OnProgressChanged));
-        //}
-
-        private async Task ShowDownloadedDialog(Task downloadTask)
+        private async Task ShowDownloadedDialog(Task downloadTask, CancellationToken cancelToken = default)
         {
             try
             {
                 await downloadTask;
-                await DialogHost.Show(new MsgBox("ダウンロード完了"));
+                DialogHost.CloseDialogCommand.Execute(null, null);
+                if (cancelToken.IsCancellationRequested)
+                    await DialogHost.Show(new MsgBox("キャンセルされました"));
+                else
+                    await DialogHost.Show(new MsgBox("ダウンロード完了"));
             }
             catch
             {
+                DialogHost.CloseDialogCommand.Execute(null, null);
                 await DialogHost.Show(new MsgBox("エラーが発生したためダウンロードが完了しませんでした"));
             }
 
         }
 
+        private async Task<string> GetSaveVideoTitle(string videoTitle, string url)
+        {
+            switch (Settings.Default.DefaultFileNameType)
+            {
+                case 0: //動画タイトル
+                    return videoTitle;
+                case 1: //動画タイトル_日付
+                    string title = System.IO.Path.ChangeExtension(videoTitle, null);
+                    MessageBox.Show(title);
+                    string extention = System.IO.Path.GetExtension(videoTitle);
+                    return title + "_" + DateTime.Now.ToString("yyyyMMdd") + extention;
+                case 2: //チャンネル名_動画タイトル
+                    return (await _youtube.GetVideoInfoAsync(url))?.Author.ChannelTitle + "_" + videoTitle;
+                default:
+                    return videoTitle;
+            }
+        }
+
+        private async Task<string> GetSaveVideoTitle(string videoTitle, string extention, string url)
+        {
+            switch (Settings.Default.DefaultFileNameType)
+            {
+                case 0: //動画タイトル
+                    return videoTitle + extention;
+                case 1: //動画タイトル_日付
+                    return videoTitle + "_" + DateTime.Now.ToString() + extention;
+                case 2: //チャンネル名_動画タイトル
+                    return (await _youtube.GetVideoInfoAsync(url))?.Author.ChannelTitle + "_" + videoTitle + extention;
+                default:
+                    return videoTitle + extention;
+            }
+        }
     }
 }

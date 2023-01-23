@@ -6,15 +6,6 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
-using Microsoft.Win32;
 using YoutubeExplode.Videos;
 using YoutubeExplode.Playlists;
 using YoutubeExplode.Channels;
@@ -23,14 +14,9 @@ using YoutubeExplode.Common;
 using YoutubeExplode;
 using YoutubeExplode.Videos.Streams;
 using YoutubeExplode.Converter;
-using System.Media;
-using System.Diagnostics;
 using MaterialDesignThemes.Wpf;
-using Microsoft.WindowsAPICodePack.Dialogs;
-using System.CodeDom;
-using System.Windows.Media.TextFormatting;
 
-namespace YoutubeChannelArchive
+namespace YoutubeArchive
 {
     internal class YoutubeFunc
     {
@@ -64,7 +50,7 @@ namespace YoutubeChannelArchive
             {
                 await DialogHost.Show(new MsgBox("プレイリストが非公開のため情報を取得できません。"));
             }
-            catch (Exception ex)
+            catch
             {
                 //MessageBox.Show("playlist is exception\n" + ex.Message);
             }
@@ -81,7 +67,7 @@ namespace YoutubeChannelArchive
                 {
                     videoInfo = await _youtube.Videos.GetAsync(url);
                 }
-                catch (Exception ex)
+                catch
                 {
                     //MessageBox.Show("videoInfo is exception\n" + ex.Message);
                 }
@@ -138,7 +124,7 @@ namespace YoutubeChannelArchive
             {
                 await DialogHost.Show(new MsgBox("プレイリストが非公開のため情報を取得できません。"));
             }
-            catch (Exception ex)
+            catch
             {
                 //MessageBox.Show("video is exception\n" + ex.Message);
             }
@@ -226,11 +212,9 @@ namespace YoutubeChannelArchive
                 }
 
             }
-            catch (Exception ex)
+            catch
             {
-                MessageBox.Show($"DownloadVideoAsync\n{ex.Message}");
-                //エラーログファイルを出力
-                PrintAddLog("errorLog.txt", ex.Message);
+                //MessageBox.Show($"DownloadVideoAsync\n{ex.Message}");
                 throw;
             }
         }
@@ -255,8 +239,10 @@ namespace YoutubeChannelArchive
                 if (onComplete != null)
                     onComplete();
             }
-            catch (Exception ex)
+            catch(Exception ex)
             {
+                if (Settings.Default.IsShowErrorMessage)
+                    MessageBox.Show(ex.Message);
                 onError?.Invoke();
             }
         }
@@ -288,14 +274,6 @@ namespace YoutubeChannelArchive
             catch
             {
                 onError?.Invoke();
-            }
-        }
-
-        private void PrintAddLog(string fileName, string message)
-        {
-            using (StreamWriter sw = new StreamWriter(@$"{System.IO.Directory.GetCurrentDirectory()}\{fileName}", true, Encoding.UTF8))
-            {
-                sw.WriteLine(message);
             }
         }
     }

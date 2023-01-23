@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace YoutubeChannelArchive {
+namespace YoutubeArchive {
     
     
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
@@ -25,7 +25,7 @@ namespace YoutubeChannelArchive {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("800")]
+        [global::System.Configuration.DefaultSettingValueAttribute("700")]
         public double Window_Width {
             get {
                 return ((double)(this["Window_Width"]));
@@ -37,7 +37,7 @@ namespace YoutubeChannelArchive {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("800")]
+        [global::System.Configuration.DefaultSettingValueAttribute("450")]
         public double Window_Height {
             get {
                 return ((double)(this["Window_Height"]));
@@ -49,7 +49,7 @@ namespace YoutubeChannelArchive {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("16")]
+        [global::System.Configuration.DefaultSettingValueAttribute("32")]
         public int MaxParallelDownloadNum {
             get {
                 return ((int)(this["MaxParallelDownloadNum"]));
@@ -61,7 +61,7 @@ namespace YoutubeChannelArchive {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
         public bool IsRemoveCompletedItem {
             get {
                 return ((bool)(this["IsRemoveCompletedItem"]));
@@ -85,7 +85,7 @@ namespace YoutubeChannelArchive {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
         public bool IsDarkTheme {
             get {
                 return ((bool)(this["IsDarkTheme"]));
@@ -104,6 +104,18 @@ namespace YoutubeChannelArchive {
             }
             set {
                 this["UserPath"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool IsShowErrorMessage {
+            get {
+                return ((bool)(this["IsShowErrorMessage"]));
+            }
+            set {
+                this["IsShowErrorMessage"] = value;
             }
         }
     }

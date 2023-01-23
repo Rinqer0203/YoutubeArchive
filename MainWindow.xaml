@@ -5,7 +5,7 @@
         xmlns:l="http://schemas.livet-mvvm.net/2011/wpf"
  
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
-        xmlns:av="http://schemas.microsoft.com/expression/blend/2008" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:local="clr-namespace:YoutubeChannelArchive" mc:Ignorable="av" x:Class="YoutubeChannelArchive.MainWindow"
+        xmlns:av="http://schemas.microsoft.com/expression/blend/2008" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:local="clr-namespace:YoutubeArchive" mc:Ignorable="av" x:Class="YoutubeArchive.MainWindow"
         TextElement.Foreground="{DynamicResource MaterialDesignBody}"
         TextElement.FontWeight="Regular"
         TextElement.FontSize="13"
@@ -14,7 +14,7 @@
         Background="{DynamicResource MaterialDesignPaper}"
         FontFamily="{DynamicResource MaterialDesignFont}"
         Closing="OnWindowClosing"
-        Title="Youtube Channel Archive" Height="450" Width="700"
+        Title="Youtube Archive" Height="450" Width="700"
         MinHeight="450" MinWidth="700"
         Name="window1">
 

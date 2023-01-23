@@ -1,9 +1,9 @@
-﻿<UserControl x:Class="YoutubeChannelArchive.UiVideoInfo"
+﻿<UserControl x:Class="YoutubeArchive.UiVideoInfo"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
-             xmlns:local="clr-namespace:YoutubeChannelArchive" xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:local="clr-namespace:YoutubeArchive" xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              mc:Ignorable="d" Height="40" >
     <DockPanel>
         <materialDesign:PackIcon Kind="PlaylistPlay" Name="PlaylistIcon" Height="25" Width="25" Visibility="Collapsed" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="0,0,5,0"/>

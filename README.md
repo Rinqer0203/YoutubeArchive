@@ -32,6 +32,15 @@
 - Windows 10
 - Windows 11
 
+# 既知の問題点
+- 再生する際に警告が表示される動画のダウンロードが極端に遅くなる。
+
+- 以下のようなURLはダウンロードエラーになる。
+  - プライム会員限定の動画
+  - プライベートな再生リスト
+  - ライブ配信中の動画
+
+
 # スクリーンショット
 - lightテーマ  
 <img width="700" src="https://user-images.githubusercontent.com/64554381/214274390-dafcad8c-59d1-4781-bd47-02d5f0d5ba41.png">

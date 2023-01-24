@@ -1,15 +1,15 @@
-﻿using System.Windows;
+﻿using System.Text.RegularExpressions;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Navigation;
-using System.Text.RegularExpressions;
 
 namespace YoutubeArchive
 {
     public partial class SettingPage : Page
     {
         public static SettingPage? instance { get; private set; } = null;
-        public string[] defaultFileNameTypes = {"動画タイトル", "動画タイトル_ダウンロード日付", "チャンネル名_動画タイトル"};
+        public string[] defaultFileNameTypes = { "動画タイトル", "動画タイトル_ダウンロード日付", "チャンネル名_動画タイトル" };
 
         public SettingPage()
         {

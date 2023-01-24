@@ -23,6 +23,6 @@ namespace YoutubeArchive
         public UiVideoInfo()
         {
             InitializeComponent();
-        }        
+        }
     }
 }

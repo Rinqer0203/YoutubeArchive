@@ -1,20 +1,18 @@
-﻿using System;
-using System.IO;
+﻿using MaterialDesignThemes.Wpf;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
-using YoutubeExplode.Videos;
-using YoutubeExplode.Playlists;
-using YoutubeExplode.Channels;
-using YoutubeExplode.Exceptions;
-using YoutubeExplode.Common;
 using YoutubeExplode;
-using YoutubeExplode.Videos.Streams;
+using YoutubeExplode.Channels;
+using YoutubeExplode.Common;
 using YoutubeExplode.Converter;
-using MaterialDesignThemes.Wpf;
+using YoutubeExplode.Exceptions;
+using YoutubeExplode.Playlists;
+using YoutubeExplode.Videos;
+using YoutubeExplode.Videos.Streams;
 
 namespace YoutubeArchive
 {
@@ -149,7 +147,7 @@ namespace YoutubeArchive
 
         //ダウンロード系関数-------------------------------------------------
         internal async Task DownloadVideoAsync(List<(string url, string title)> videoInfos, string saveFolderPath,
-            Action<(double progress, int completeCnt, int errCnt)> progressCallback, int maxParallelDownloadCnt, 
+            Action<(double progress, int completeCnt, int errCnt)> progressCallback, int maxParallelDownloadCnt,
             Action<string>? onCompleteItem = null, Action<(string url, string title)>? onErrorItem = null,
             CancellationToken cancelToken = default)
         {
@@ -239,7 +237,7 @@ namespace YoutubeArchive
                 if (onComplete != null)
                     onComplete();
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 if (Settings.Default.IsShowErrorMessage)
                     MessageBox.Show(ex.Message);

@@ -8,7 +8,7 @@ namespace YoutubeArchive
         public MsgBox(string message, bool HideCancelButton = false)
         {
             InitializeComponent();
-            
+
             txtMessage.Text = message;
 
             if (HideCancelButton)

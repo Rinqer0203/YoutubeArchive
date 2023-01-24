@@ -1,21 +1,18 @@
-﻿using System;
-using System.IO;
+﻿using MaterialDesignThemes.Wpf;
+using Microsoft.Win32;
+using Microsoft.WindowsAPICodePack.Dialogs;
+using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
-using Microsoft.Win32;
-using YoutubeExplode.Videos;
-using YoutubeExplode.Playlists;
-using YoutubeExplode.Channels;
 using YoutubeExplode.Common;
-using System.Threading;
-using MaterialDesignThemes.Wpf;
-using Microsoft.WindowsAPICodePack.Dialogs;
 
 namespace YoutubeArchive
 {
@@ -76,16 +73,7 @@ namespace YoutubeArchive
             SavePathComboBox.SelectedIndex = 0;
 
             //サウンドのサムネイルデータの設定
-            using (FileStream stream = File.OpenRead(@"Images/soundOnly.png"))
-            {
-                _soundThumbnail.BeginInit();
-                _soundThumbnail.StreamSource = stream;
-                _soundThumbnail.DecodePixelWidth = 500;
-                _soundThumbnail.CacheOption = BitmapCacheOption.OnLoad;
-                _soundThumbnail.CreateOptions = BitmapCreateOptions.None;
-                _soundThumbnail.EndInit();
-                _soundThumbnail.Freeze();
-            }
+            _soundThumbnail = new BitmapImage(new Uri("/Resources/soundOnly.png", UriKind.Relative));
         }
 
         public static MainPage GetInstance()

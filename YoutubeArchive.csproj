@@ -5,12 +5,15 @@
     <TargetFramework>net6.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
     <UseWPF>true</UseWPF>
-    <ApplicationIcon>YoutubeArchive.ico</ApplicationIcon>
+    <ApplicationIcon>Resources\YoutubeArchive.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
+    <Content Include="Resources\YoutubeArchive.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Resource Include="Resources\soundOnly.png" />
-    <Content Include="YoutubeArchive.ico" />
   </ItemGroup>
 
   <ItemGroup>

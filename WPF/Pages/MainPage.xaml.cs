@@ -12,6 +12,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
+using YoutubeArchive.WPF;
 using YoutubeExplode.Common;
 
 namespace YoutubeArchive

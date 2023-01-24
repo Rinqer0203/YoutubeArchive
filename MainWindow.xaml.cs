@@ -14,7 +14,7 @@ namespace YoutubeArchive
         {
             InitializeComponent();
 
-            Uri uri = new Uri("Pages/MainPage.xaml", UriKind.Relative);
+            Uri uri = new Uri("WPF/Pages/MainPage.xaml", UriKind.Relative);
             frame.Source = uri;
 
             Height = Settings.Default.Window_Height;

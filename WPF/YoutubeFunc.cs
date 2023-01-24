@@ -14,7 +14,7 @@ using YoutubeExplode.Playlists;
 using YoutubeExplode.Videos;
 using YoutubeExplode.Videos.Streams;
 
-namespace YoutubeArchive
+namespace YoutubeArchive.WPF
 {
     internal class YoutubeFunc
     {

@@ -1,10 +1,13 @@
 ﻿using MaterialDesignThemes.Wpf;
 using System;
+using System.IO;
+using System.Net.Http;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Media.Imaging;
 using YoutubeExplode;
 using YoutubeExplode.Channels;
 using YoutubeExplode.Common;
@@ -19,11 +22,13 @@ namespace YoutubeArchive.WPF
     internal class YoutubeFunc
     {
         internal YoutubeClient? _youtube { get; private set; } = null;
+        private HttpClient? _httpClient = null;
         private const int _downloadCheckSpanMs = 20;
 
         internal YoutubeFunc()
         {
             _youtube = new YoutubeClient();
+            _httpClient = new HttpClient();
         }
 
         public string GetSafeTitle(string title)
@@ -179,18 +184,18 @@ namespace YoutubeArchive.WPF
                     }
 
                     Task task;
-                    if (System.IO.Path.GetExtension(videoInfos[i].title) == ".mp4")
+                    task = System.IO.Path.GetExtension(videoInfos[i].title) switch
                     {
-                        task = DownloadVideoAsync(videoInfos[i].url, @$"{saveFolderPath}\{GetSafeTitle(videoInfos[i].title)}",
+                        ".mp4" => DownloadVideoAsync(videoInfos[i].url, @$"{saveFolderPath}\{GetSafeTitle(videoInfos[i].title)}",
                             progressCallback: (x) => taskProgressList[ii] = x, onComplete: onComplete, onError: onError,
-                            cancelToken: cancelToken);
-                    }
-                    else
-                    {
-                        task = DownloadAudioAsync(videoInfos[i].url, @$"{saveFolderPath}\{GetSafeTitle(videoInfos[i].title)}",
+                            cancelToken: cancelToken),
+                        ".mp3" => task = DownloadAudioAsync(videoInfos[i].url, @$"{saveFolderPath}\{GetSafeTitle(videoInfos[i].title)}",
                             progressCallback: (x) => taskProgressList[ii] = x, onComplete: onComplete, onError: onError,
-                            cancelToken: cancelToken);
-                    }
+                            cancelToken: cancelToken),
+                        _ => DownloadThumbnail(videoInfos[i].url, @$"{saveFolderPath}\{GetSafeTitle(videoInfos[i].title)}",
+                            progressCallback: (x) => taskProgressList[ii] = x, onComplete: onComplete, onError: onError,
+                            cancelToken: cancelToken),
+                    };
                     taskList.Add(task);
 
                     progressCallback((taskProgressList.Sum() / videoInfos.Count, completeCnt, errCnt));
@@ -269,10 +274,43 @@ namespace YoutubeArchive.WPF
 
                 onComplete?.Invoke();
             }
+            catch (Exception ex)
+            {
+                if (Settings.Default.IsShowErrorMessage)
+                    MessageBox.Show(ex.Message);
+                onError?.Invoke();
+            }
+        }
+
+        internal async Task DownloadThumbnail(string url, string savePath, Action<double>? progressCallback = null,
+            Action? onComplete = null, Action? onError = null, CancellationToken cancelToken = default)
+        {
+            if (_youtube == null || _httpClient == null) return;
+
+            try
+            {
+                string? thumbnailUrl = (await GetVideoInfoAsync(url))?.Thumbnails.TryGetWithHighestResolution()?.Url;
+
+                if (thumbnailUrl != null)
+                {
+                    //画像をダウンロード
+                    var response = await _httpClient.GetAsync(thumbnailUrl);
+                    //画像を保存
+                    using var stream = await response.Content.ReadAsStreamAsync();
+                    using var outStream = File.Create(savePath);
+                    stream.CopyTo(outStream);
+                }
+
+                if (progressCallback != null)
+                    progressCallback(1f);
+
+                onComplete?.Invoke();
+            }
             catch
             {
                 onError?.Invoke();
             }
+
         }
     }
 }

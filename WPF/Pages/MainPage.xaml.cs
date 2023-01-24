@@ -26,7 +26,7 @@ namespace YoutubeArchive
         private bool _isBusy = false;
         private bool _isDownloadingErrList = false;
 
-        private enum addListType { video, playlist, channel };
+        private enum addListType { video, playlist, channel};
 
         public MainPage()
         {
@@ -150,10 +150,15 @@ namespace YoutubeArchive
                     itemTitle = title + ".mp4";
                     itemThumbnail = new BitmapImage(new Uri(thumbnail.Url));
                 }
-                else
+                else if (DownloadExtensionTypeComboBox.Text == "音声のみ")
                 {
                     itemTitle = title + ".mp3";
                     itemThumbnail = _soundThumbnail;
+                }
+                else
+                {
+                    itemTitle = title + ".png";
+                    itemThumbnail = new BitmapImage(new Uri(thumbnail.Url));
                 }
 
                 //重複するタイトルのアイテムがすでに存在していれば追加しない
@@ -225,7 +230,6 @@ namespace YoutubeArchive
 
                 AddList(channelInfo.Title, channelInfo.Thumbnails.First(), channelInfo.Url, addListType.channel);
             }
-
         }
 
         private async void AllItemsDownloadButton_Click(object sender, RoutedEventArgs e)
@@ -346,6 +350,7 @@ namespace YoutubeArchive
             _isDownloadingErrList = (DownloadListTabControl.SelectedIndex == 0 ? false : true);
 
             var videoInfos = new List<(string url, string title)>();
+            var thumbnailInfos = new List<(string url, string title)>();
 
             //videoInfosに引数のdownloadListを動画単位に変換して追加する
             foreach (UiVideoInfo item in targetDownloadList)
@@ -404,17 +409,17 @@ namespace YoutubeArchive
                 if (_isDownloadingErrList) return;
                 //エラーアイテムをエラーダウンロードリストに追加する
                 var uiVideoInfo = new UiVideoInfo();
-                if (System.IO.Path.GetExtension(itemInfo.title) == ".mp4")
+                if (System.IO.Path.GetExtension(itemInfo.title) == ".mp3")
+                {
+                    uiVideoInfo.ImgSource = _soundThumbnail;
+                }
+                else
                 {
                     var info = await _youtube.GetVideoInfoAsync(itemInfo.url);
                     if (info != null)
                     {
                         uiVideoInfo.ImgSource = new BitmapImage(new Uri(info.Thumbnails.First().Url));
                     }
-                }
-                else
-                {
-                    uiVideoInfo.ImgSource = _soundThumbnail;
                 }
                 uiVideoInfo.Title.Text = itemInfo.title;
                 uiVideoInfo.Url.Text = itemInfo.url;

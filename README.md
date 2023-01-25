@@ -16,7 +16,8 @@
 # 機能
 - 動画のダウンロード
 - プレイリストやチャンネルに含まれる動画の一括ダウンロード
-- 保存フォーマットの選択(mp4, mp3)
+- 最高画質のサムネイルのダウンロード
+- 保存フォーマットの選択(mp4, mp3, png)
 - 保存先パスの指定
 - ダークモードの切り替え
 - 最大並列ダウンロード数の指定
@@ -43,10 +44,12 @@
 
 # スクリーンショット
 - lightテーマ  
-<img width="700" src="https://user-images.githubusercontent.com/64554381/214274390-dafcad8c-59d1-4781-bd47-02d5f0d5ba41.png">
+<img width="700" src="https://user-images.githubusercontent.com/64554381/214489991-495d6eb4-dcec-41a5-836d-db92057dc3b8.png">
+
 
 - 設定画面  
 <img width="700" src="https://user-images.githubusercontent.com/64554381/214274649-9305534f-0ee0-464c-8351-229a1e2ac2ba.png">
+
 
 - ダウンロードファイル名フォーマット  
 <img width="700" src="https://user-images.githubusercontent.com/64554381/214274725-5a312413-3dd4-49c9-933e-b57bd30604c3.png">

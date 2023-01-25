@@ -232,6 +232,16 @@ namespace YoutubeArchive
             }
         }
 
+        private void PasteButton_Click(object sender, RoutedEventArgs e)
+        {
+            //クリップボドから文字列を取得
+            string text = Clipboard.GetText();
+            if (!string.IsNullOrEmpty(text))
+            {
+               　UrlTextBox.Text = text;
+            }
+        }
+
         private async void AllItemsDownloadButton_Click(object sender, RoutedEventArgs e)
         {
             List<UiVideoInfo> uiVideoInfos = GetDownloadTargetList(false);

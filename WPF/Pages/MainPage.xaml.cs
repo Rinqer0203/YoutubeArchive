@@ -26,7 +26,7 @@ namespace YoutubeArchive
         private bool _isBusy = false;
         private bool _isDownloadingErrList = false;
 
-        private enum addListType { video, playlist, channel};
+        private enum addListType { video, playlist, channel };
 
         public MainPage()
         {
@@ -238,7 +238,7 @@ namespace YoutubeArchive
             string text = Clipboard.GetText();
             if (!string.IsNullOrEmpty(text))
             {
-               　UrlTextBox.Text = text;
+                UrlTextBox.Text = text;
             }
         }
 
@@ -438,7 +438,7 @@ namespace YoutubeArchive
             }
 
             //videoInfosのダウンロードタスクを生成
-            Task task = _youtube.DownloadVideoAsync(videoInfos, SavePathComboBox.Text, progressCallback: OnProgressChanged,
+            Task task = _youtube.DownloadAsync(videoInfos, SavePathComboBox.Text, progressCallback: OnProgressChanged,
                Settings.Default.MaxParallelDownloadNum, cancelToken: cancelToken, onCompleteItem: onComplete, onErrorItem: onError);
 
             await ShowDownloadedDialog(task, cancelToken);

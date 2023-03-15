@@ -1,13 +1,14 @@
 ﻿using MaterialDesignThemes.Wpf;
 using System;
-using System.IO;
-using System.Net.Http;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
+using System.Net.Http;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Media.Imaging;
 using YoutubeExplode;
 using YoutubeExplode.Channels;
 using YoutubeExplode.Common;
@@ -33,7 +34,7 @@ namespace YoutubeArchive.WPF
 
         public string GetSafeTitle(string title)
         {
-            char[] invalidChars = System.IO.Path.GetInvalidFileNameChars(); //ファイル名に使用できない文字
+            List<char> invalidChars = System.IO.Path.GetInvalidFileNameChars().ToList(); //ファイル名に使用できない文字
             return string.Concat(title.Select(c => invalidChars.Contains(c) ? '_' : c));  //使用できない文字を'_'に置換
         }
 
@@ -112,7 +113,6 @@ namespace YoutubeArchive.WPF
                 }
             }
         }
-
         internal async Task<IReadOnlyList<PlaylistVideo>?> GetPlayListVideosAsync(string url)
         {
             if (_youtube == null) return null;
@@ -151,7 +151,8 @@ namespace YoutubeArchive.WPF
         }
 
         //ダウンロード系関数-------------------------------------------------
-        internal async Task DownloadVideoAsync(List<(string url, string title)> videoInfos, string saveFolderPath,
+        //ダウンロード
+        internal async Task DownloadAsync(List<(string url, string title)> videoInfos, string saveFolderPath,
             Action<(double progress, int completeCnt, int errCnt)> progressCallback, int maxParallelDownloadCnt,
             Action<string>? onCompleteItem = null, Action<(string url, string title)>? onErrorItem = null,
             CancellationToken cancelToken = default)
@@ -167,7 +168,7 @@ namespace YoutubeArchive.WPF
                 for (int i = 0; i < videoInfos.Count; i++)
                 {
                     taskProgressList.Add(0);
-                    //一度ローカル変数に入れないとラムダ式が実行されるときのiの値が使われてしまう(値型なのに...)
+                    //一度ローカル変数に入れないとラムダ式が実行されるときのiの値が使われてしまう
                     //参考サイト：https://qiita.com/hiki_neet_p/items/8efc80739657b52922c7
                     int ii = i;
 
@@ -222,6 +223,7 @@ namespace YoutubeArchive.WPF
             }
         }
 
+        //単体ビデオダウンロード
         internal async Task DownloadVideoAsync(string url, string savePath, Action<double>? progressCallback = null,
             Action? onComplete = null, Action? onError = null, CancellationToken cancelToken = default)
         {
@@ -257,21 +259,99 @@ namespace YoutubeArchive.WPF
 
             try
             {
+                string savePathWebm = Path.ChangeExtension(savePath, ".webm");
+                string savePathMp3 = Path.ChangeExtension(savePath, ".mp3");
+                var streamManifest = await _youtube.Videos.Streams.GetManifestAsync(url);
+                var audioStreamInfo = streamManifest.GetAudioOnlyStreams().GetWithHighestBitrate();
+
                 if (progressCallback == null)
                 {
-                    var streamManifest = await _youtube.Videos.Streams.GetManifestAsync(url);
-                    var audioStreamInfo = streamManifest.GetAudioOnlyStreams().GetWithHighestBitrate();
-                    await _youtube.Videos.Streams.DownloadAsync(audioStreamInfo, savePath, cancellationToken: cancelToken);
+                    await _youtube.Videos.Streams.DownloadAsync(audioStreamInfo, savePathWebm, cancellationToken: cancelToken);
                 }
                 else
                 {
-                    var streamManifest = await _youtube.Videos.Streams.GetManifestAsync(url);
-                    var audioStreamInfo = streamManifest.GetAudioOnlyStreams().GetWithHighestBitrate();
-
                     var progressHandler = new Progress<double>(progressCallback);
-                    await _youtube.Videos.Streams.DownloadAsync(audioStreamInfo, savePath, progressHandler, cancellationToken: cancelToken);
+                    await _youtube.Videos.Streams.DownloadAsync(audioStreamInfo, savePathWebm, progressHandler, cancellationToken: cancelToken);
                 }
 
+                await Task.Run(() =>
+                {
+                    {
+                        //*
+                        using var proc = new Process();
+                        proc.StartInfo.FileName = Environment.CurrentDirectory + @"\ffprobe.exe";
+                        proc.StartInfo.Arguments = $"-v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 \"{savePathWebm}\"";
+                        proc.StartInfo.WorkingDirectory = Path.GetDirectoryName(savePathWebm);
+                        proc.StartInfo.UseShellExecute = false;
+                        proc.StartInfo.RedirectStandardError = true;
+                        proc.StartInfo.RedirectStandardOutput = true;
+                        proc.StartInfo.CreateNoWindow = true; // ウィンドウ表示しない
+                        proc.Start();
+                        proc.WaitForExit();
+                        Debug.Print(proc.StandardOutput.ReadToEnd());
+                        Debug.Print(proc.StandardError.ReadToEnd());
+
+                        Debug.Print("-------------------");
+                        //*/
+
+                    }
+
+                    {
+                        using var proc = new Process();
+                        proc.StartInfo.FileName = Environment.CurrentDirectory + @"\ffmpeg.exe";
+                        proc.StartInfo.Arguments = $"-y -i \"{savePathWebm}\" -acodec libmp3lame -aq 4 -progress - \"{savePathMp3}\"";
+                        proc.StartInfo.WorkingDirectory = Path.GetDirectoryName(savePathWebm);
+                        proc.StartInfo.UseShellExecute = false;
+                        proc.StartInfo.RedirectStandardError = true;
+                        proc.StartInfo.RedirectStandardOutput = true;
+                        proc.StartInfo.CreateNoWindow = true; // ウィンドウ表示しない
+
+                        proc.Start();
+                        StreamReader stream = proc.StandardOutput;
+                        bool isFirstMatch = true;
+                        while (!stream.EndOfStream)
+                        {
+                            string? input = stream.ReadLine();
+                            if (input == null)
+                                continue;
+
+                            if (input.Contains("out_time="))
+                            {
+                                Debug.Print(input);
+
+                                if (isFirstMatch)
+                                {
+                                    isFirstMatch = false;
+                                    continue;
+                                }
+
+                                // 正規表現パターンを定義
+                                string pattern = @"\d{2}";
+
+                                // 正規表現オブジェクトを作成
+                                Regex regex = new Regex(pattern);
+
+                                // 文字列から数字を抽出
+                                MatchCollection matches = regex.Matches(input);
+
+                                int totalSec = 0;
+
+                                for (int i = 0; i < 3; i++)
+                                {
+                                    totalSec += int.Parse(matches[i].Value) * (int)Math.Pow(60, 2 - i);
+                                }
+
+                                Debug.Print("totalsec : " + totalSec);
+                            }
+                        }
+                        //proc.WaitForExit();
+                        //Debug.Print(proc.StandardError.ReadToEnd());
+
+                        //File.Delete(savePathWebm);
+                    }
+                });
+
+                Debug.Print("OnComplete : " + (onComplete != null));
                 onComplete?.Invoke();
             }
             catch (Exception ex)
@@ -282,6 +362,7 @@ namespace YoutubeArchive.WPF
             }
         }
 
+        //単体サムネイルダウンロード
         internal async Task DownloadThumbnail(string url, string savePath, Action<double>? progressCallback = null,
             Action? onComplete = null, Action? onError = null, CancellationToken cancelToken = default)
         {
@@ -314,3 +395,6 @@ namespace YoutubeArchive.WPF
         }
     }
 }
+//Todo: progressを2にして1をダウンロード,　1を変換にする
+//プログレスに変換をどう考慮させるか
+//返還中のプログレステキストの変更

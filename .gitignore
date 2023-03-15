@@ -194,3 +194,11 @@ obj
 bin/Debug/net6.0-windows/ffmpeg.exe
 
 ffmpeg.exe
+ffprobe.exe
+.vs/ProjectEvaluation/youtubearchive.metadata.v6.1
+.vs/ProjectEvaluation/youtubearchive.projects.v6.1
+.vs/YoutubeArchive/DesignTimeBuild/.dtbcache.v2
+.vs/YoutubeArchive/FileContentIndex/85505409-9c06-433f-9ca1-d005b14b6ccd.vsidx
+.vs/YoutubeArchive/v17/.futdcache.v2
+.vs/YoutubeChannelArchive/FileContentIndex/51e5d54d-c82b-4cb4-bb25-306ce750cc03.vsidx
+.vs/YoutubeChannelArchive/v17/.wsuo

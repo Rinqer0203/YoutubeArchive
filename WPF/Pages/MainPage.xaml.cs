@@ -20,8 +20,8 @@ namespace YoutubeArchive
     public partial class MainPage : Page
     {
         public static MainPage? _instance { get; private set; } = null;
-        private YoutubeFunc _youtube = new YoutubeFunc();
-        private BitmapImage _soundThumbnail = new BitmapImage();
+        private YoutubeFunc _youtube = new();
+        private BitmapImage _soundThumbnail = new();
         private CancellationTokenSource? _tokenSource = null;
         private bool _isBusy = false;
         private bool _isDownloadingErrList = false;
@@ -55,7 +55,7 @@ namespace YoutubeArchive
 
             //保存先フォルダパスリストに特殊パスを追加する
             //ダウンロード
-            SavePathComboBox.Items.Add(System.Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + @"\Downloads");
+            SavePathComboBox.Items.Add(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + @"\Downloads");
             // ドキュメント
             SavePathComboBox.Items.Add(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments));
             // デスクトップ
@@ -66,11 +66,21 @@ namespace YoutubeArchive
             SavePathComboBox.Items.Add(Environment.GetFolderPath(Environment.SpecialFolder.MyVideos));
             // ミュージック
             SavePathComboBox.Items.Add(Environment.GetFolderPath(Environment.SpecialFolder.MyMusic));
+
             //最後に選択されていたパス
+            if (Directory.Exists(Settings.Default.UserPath3))
+            {
+                SavePathComboBox.Items.Insert(0, Settings.Default.UserPath3);
+            }
+            if (Directory.Exists(Settings.Default.UserPath2))
+            {
+                SavePathComboBox.Items.Insert(0, Settings.Default.UserPath2);
+            }
             if (Directory.Exists(Settings.Default.UserPath))
             {
                 SavePathComboBox.Items.Insert(0, Settings.Default.UserPath);
             }
+
             SavePathComboBox.SelectedIndex = 0;
 
             //サウンドのサムネイルデータの設定
@@ -88,7 +98,7 @@ namespace YoutubeArchive
             DownloadProgress.Value = progressInfo.progress;
 
             double num = Math.Round((progressInfo.progress * 100) / 1, 1, MidpointRounding.AwayFromZero);
-            DownloadStateLabel.Content = $"ダウンロード中 ：{(string.Format("{0:F1}", num)).PadLeft(4)}%  " +
+            DownloadStateLabel.Content = $"ダウンロード コンバート中 ：{(string.Format("{0:F1}", num)).PadLeft(4)}%  " +
                 $"(完了：{progressInfo.completeNum}  失敗：{progressInfo.failureNum})";
         }
 
@@ -276,14 +286,26 @@ namespace YoutubeArchive
         private void SavePathReferenceButton_Click(object sender, RoutedEventArgs e)
         {
             string? path = SaveFolderPathDialog();
+
             if (path != null)
             {
-                Settings.Default.UserPath = path;
-                if (SavePathComboBox.Items.Contains(path))
+                if (Settings.Default.UserPath2 == path)
                 {
-                    SavePathComboBox.Items.Remove(path);
+                    (Settings.Default.UserPath, Settings.Default.UserPath2) = (Settings.Default.UserPath2, Settings.Default.UserPath);
                 }
-                SavePathComboBox.Items.Insert(0, path);
+                else if (Settings.Default.UserPath3 == path)
+                {
+                    (Settings.Default.UserPath, Settings.Default.UserPath3) = (Settings.Default.UserPath3, Settings.Default.UserPath);
+                }
+                else
+                {
+                    Settings.Default.UserPath3 = Settings.Default.UserPath2;
+                    Settings.Default.UserPath2 = Settings.Default.UserPath;
+                    Settings.Default.UserPath = path;
+                }
+
+                if (Settings.Default.UserPath != "")
+                    SavePathComboBox.Items.Insert(0, Settings.Default.UserPath);
                 SavePathComboBox.SelectedItem = path;
             }
         }

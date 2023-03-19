@@ -163,14 +163,21 @@ namespace YoutubeArchive.WPF
             {
                 var taskList = new List<Task>();
                 var taskProgressList = new List<double>();
+                var convertProgressList = new List<double>();
                 int completeCnt = 0, errCnt = 0;
 
                 for (int i = 0; i < videoInfos.Count; i++)
                 {
                     taskProgressList.Add(0);
+
+                    if (Path.GetExtension(videoInfos[i].title) == ".mp3")
+                    {
+                        convertProgressList.Add(0);
+                    }
                     //一度ローカル変数に入れないとラムダ式が実行されるときのiの値が使われてしまう
                     //参考サイト：https://qiita.com/hiki_neet_p/items/8efc80739657b52922c7
                     int ii = i;
+                    int iii = convertProgressList.Count - 1;
 
                     void onError()
                     {
@@ -185,26 +192,27 @@ namespace YoutubeArchive.WPF
                     }
 
                     Task task;
-                    task = System.IO.Path.GetExtension(videoInfos[i].title) switch
+                    task = Path.GetExtension(videoInfos[i].title) switch
                     {
                         ".mp4" => DownloadVideoAsync(videoInfos[i].url, @$"{saveFolderPath}\{GetSafeTitle(videoInfos[i].title)}",
-                            progressCallback: (x) => taskProgressList[ii] = x, onComplete: onComplete, onError: onError,
+                            progressCallback: x => taskProgressList[ii] = x, onComplete: onComplete, onError: onError,
                             cancelToken: cancelToken),
                         ".mp3" => task = DownloadAudioAsync(videoInfos[i].url, @$"{saveFolderPath}\{GetSafeTitle(videoInfos[i].title)}",
-                            progressCallback: (x) => taskProgressList[ii] = x, onComplete: onComplete, onError: onError,
+                            downloadProgressCallback: x => taskProgressList[ii] = x, convertProgressCallBack: x => convertProgressList[iii] = x,
+                            onComplete: onComplete, onError: onError,
                             cancelToken: cancelToken),
                         _ => DownloadThumbnail(videoInfos[i].url, @$"{saveFolderPath}\{GetSafeTitle(videoInfos[i].title)}",
-                            progressCallback: (x) => taskProgressList[ii] = x, onComplete: onComplete, onError: onError,
+                            progressCallback: x => taskProgressList[ii] = x, onComplete: onComplete, onError: onError,
                             cancelToken: cancelToken),
                     };
                     taskList.Add(task);
 
-                    progressCallback((taskProgressList.Sum() / videoInfos.Count, completeCnt, errCnt));
+                    progressCallback(((taskProgressList.Sum() + convertProgressList.Sum()) / (videoInfos.Count + convertProgressList.Count), completeCnt, errCnt));
                     //並列ダウンロード数に達したらタスクリスト追加を停止し、一定時間処理をスリープ
                     while (taskProgressList.Count(x => 1 > Math.Round(x, 1)) >= maxParallelDownloadCnt && !cancelToken.IsCancellationRequested)
                     {
-                        await Task.Delay(_downloadCheckSpanMs);
-                        progressCallback((taskProgressList.Sum() / videoInfos.Count, completeCnt, errCnt));
+                        await Task.Delay(_downloadCheckSpanMs, cancelToken);
+                        progressCallback(((taskProgressList.Sum() + convertProgressList.Sum()) / (videoInfos.Count + convertProgressList.Count), completeCnt, errCnt));
                     }
                 }
 
@@ -212,9 +220,10 @@ namespace YoutubeArchive.WPF
                 while (taskList.Count(x => x.IsCompleted) < taskList.Count)
                 {
                     await Task.Delay(_downloadCheckSpanMs);
-                    progressCallback((taskProgressList.Sum() / videoInfos.Count, completeCnt, errCnt));
+                    //progressCallback(((taskProgressList.Sum() + convertProgressList.Sum()) / (videoInfos.Count + ), completeCnt, errCnt));
+                    progressCallback(((taskProgressList.Sum() + convertProgressList.Sum()) / (videoInfos.Count + convertProgressList.Count), completeCnt, errCnt));
+                    Debug.Print("convertProgress" + convertProgressList.Sum().ToString());
                 }
-
             }
             catch
             {
@@ -252,10 +261,24 @@ namespace YoutubeArchive.WPF
             }
         }
 
-        internal async Task DownloadAudioAsync(string url, string savePath, Action<double>? progressCallback = null,
-            Action? onComplete = null, Action? onError = null, CancellationToken cancelToken = default)
+        internal async Task DownloadAudioAsync(string url, string savePath, Action<double> downloadProgressCallback,
+            Action<double> convertProgressCallBack, Action? onComplete = null, Action? onError = null, CancellationToken cancelToken = default)
         {
             if (_youtube == null) return;
+
+            int GetWebmDuration(string webmPath)
+            {
+                using var proc = new Process();
+                proc.StartInfo.FileName = Environment.CurrentDirectory + @"\ffprobe.exe";
+                proc.StartInfo.Arguments = $"-v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 \"{webmPath}\"";
+                proc.StartInfo.UseShellExecute = false;
+                proc.StartInfo.RedirectStandardOutput = true;
+                proc.StartInfo.CreateNoWindow = true;
+                proc.Start();
+                proc.WaitForExit();
+                string txt = proc.StandardOutput.ReadToEnd();
+                return (int)Math.Floor(double.Parse(txt));
+            }
 
             try
             {
@@ -264,94 +287,55 @@ namespace YoutubeArchive.WPF
                 var streamManifest = await _youtube.Videos.Streams.GetManifestAsync(url);
                 var audioStreamInfo = streamManifest.GetAudioOnlyStreams().GetWithHighestBitrate();
 
-                if (progressCallback == null)
-                {
-                    await _youtube.Videos.Streams.DownloadAsync(audioStreamInfo, savePathWebm, cancellationToken: cancelToken);
-                }
-                else
-                {
-                    var progressHandler = new Progress<double>(progressCallback);
-                    await _youtube.Videos.Streams.DownloadAsync(audioStreamInfo, savePathWebm, progressHandler, cancellationToken: cancelToken);
-                }
+                var downloadProgressHandler = new Progress<double>(downloadProgressCallback);
+                await _youtube.Videos.Streams.DownloadAsync(audioStreamInfo, savePathWebm, downloadProgressHandler, cancellationToken: cancelToken);
+
+                var convertProgressHandler = new Progress<double>(convertProgressCallBack);
 
                 await Task.Run(() =>
                 {
+                    int duration = GetWebmDuration(savePathWebm);
+
+                    Debug.Print("-------------------------");
+
+                    using var proc = new Process();
+                    proc.StartInfo.FileName = Environment.CurrentDirectory + @"\ffmpeg.exe";
+                    proc.StartInfo.Arguments = $"-y -i \"{savePathWebm}\" -acodec libmp3lame -aq 4 -progress - \"{savePathMp3}\"";
+                    proc.StartInfo.UseShellExecute = false;
+                    proc.StartInfo.RedirectStandardOutput = true;
+                    proc.StartInfo.CreateNoWindow = true;
+                    proc.Start();
+                    StreamReader stream = proc.StandardOutput;
+                    bool isFirstMatch = true;
+                    while (!stream.EndOfStream)
                     {
-                        //*
-                        using var proc = new Process();
-                        proc.StartInfo.FileName = Environment.CurrentDirectory + @"\ffprobe.exe";
-                        proc.StartInfo.Arguments = $"-v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 \"{savePathWebm}\"";
-                        proc.StartInfo.WorkingDirectory = Path.GetDirectoryName(savePathWebm);
-                        proc.StartInfo.UseShellExecute = false;
-                        proc.StartInfo.RedirectStandardError = true;
-                        proc.StartInfo.RedirectStandardOutput = true;
-                        proc.StartInfo.CreateNoWindow = true; // ウィンドウ表示しない
-                        proc.Start();
-                        proc.WaitForExit();
-                        Debug.Print(proc.StandardOutput.ReadToEnd());
-                        Debug.Print(proc.StandardError.ReadToEnd());
+                        string? input = stream.ReadLine();
+                        if (input == null)
+                            continue;
 
-                        Debug.Print("-------------------");
-                        //*/
-
-                    }
-
-                    {
-                        using var proc = new Process();
-                        proc.StartInfo.FileName = Environment.CurrentDirectory + @"\ffmpeg.exe";
-                        proc.StartInfo.Arguments = $"-y -i \"{savePathWebm}\" -acodec libmp3lame -aq 4 -progress - \"{savePathMp3}\"";
-                        proc.StartInfo.WorkingDirectory = Path.GetDirectoryName(savePathWebm);
-                        proc.StartInfo.UseShellExecute = false;
-                        proc.StartInfo.RedirectStandardError = true;
-                        proc.StartInfo.RedirectStandardOutput = true;
-                        proc.StartInfo.CreateNoWindow = true; // ウィンドウ表示しない
-
-                        proc.Start();
-                        StreamReader stream = proc.StandardOutput;
-                        bool isFirstMatch = true;
-                        while (!stream.EndOfStream)
+                        if (input.Contains("out_time="))
                         {
-                            string? input = stream.ReadLine();
-                            if (input == null)
-                                continue;
-
-                            if (input.Contains("out_time="))
+                            if (isFirstMatch)
                             {
-                                Debug.Print(input);
-
-                                if (isFirstMatch)
-                                {
-                                    isFirstMatch = false;
-                                    continue;
-                                }
-
-                                // 正規表現パターンを定義
-                                string pattern = @"\d{2}";
-
-                                // 正規表現オブジェクトを作成
-                                Regex regex = new Regex(pattern);
-
-                                // 文字列から数字を抽出
-                                MatchCollection matches = regex.Matches(input);
-
-                                int totalSec = 0;
-
-                                for (int i = 0; i < 3; i++)
-                                {
-                                    totalSec += int.Parse(matches[i].Value) * (int)Math.Pow(60, 2 - i);
-                                }
-
-                                Debug.Print("totalsec : " + totalSec);
+                                isFirstMatch = false;
+                                continue;
                             }
-                        }
-                        //proc.WaitForExit();
-                        //Debug.Print(proc.StandardError.ReadToEnd());
 
-                        //File.Delete(savePathWebm);
+                            // 正規表現オブジェクトを作成
+                            Regex regex = new(@"\d{2}");
+                            // 文字列から数字を抽出
+                            MatchCollection matches = regex.Matches(input);
+                            int totalSec = 0;
+                            for (int i = 0; i < 3; i++)
+                            {
+                                totalSec += int.Parse(matches[i].Value) * (int)Math.Pow(60, 2 - i);
+                            }
+                            convertProgressCallBack((double)totalSec / duration);
+                        }
                     }
+                    File.Delete(savePathWebm);
                 });
 
-                Debug.Print("OnComplete : " + (onComplete != null));
                 onComplete?.Invoke();
             }
             catch (Exception ex)
